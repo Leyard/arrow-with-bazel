@@ -28,7 +28,7 @@ archive_override(
         "-p1",
         "-N",
     ],
-    patches = ["@//:third_party/thrift-0.22.0-module.patch"],
+    patches = ["//third_party:thrift-0.22.0-module.patch"],
     sha256 = "c4649c5879dd56c88f1e7a1c03e0fbfcc3b2a2872fb81616bffba5aa8a225a37",
     strip_prefix = "thrift-0.22.0",
     url = "https://github.com/apache/thrift/archive/refs/tags/v0.22.0.tar.gz",
@@ -43,7 +43,7 @@ archive_override(
         "-p1",
         "-N",
     ],
-    patches = ["@//:third_party/xsimd-13.2.0-module.patch"],
+    patches = ["//third_party:xsimd-13.2.0-module.patch"],
     sha256 = "edd8cd3d548c185adc70321c53c36df41abe64c1fe2c67bc6d93c3ecda82447a",
     strip_prefix = "xsimd-13.2.0",
     url = "https://github.com/xtensor-stack/xsimd/archive/refs/tags/13.2.0.tar.gz",
@@ -56,12 +56,11 @@ bazel_dep(name = "opentelemetry-proto", version = "1.7.0")
 
 # Pin a newer version to avoid some bugs
 bazel_dep(name = "grpc", version = "1.74.1")
-
 bazel_dep(name = "substrait", version = "0.44.0")
 archive_override(
     module_name = "substrait",
     patch_args = ["-p1"],
-    patches = ["@//:third_party/substrait-0.44.0-module.patch"],
+    patches = ["//third_party:substrait-0.44.0-module.patch"],
     sha256 = "f989a862f694e7dbb695925ddb7c4ce06aa6c51aca945105c075139aed7e55a2",
     strip_prefix = "substrait-0.44.0",
     url = "https://github.com/substrait-io/substrait/archive/refs/tags/v0.44.0.tar.gz",
@@ -74,7 +73,7 @@ bazel_dep(name = "flatbuffers", version = "24.3.6", repo_name = "com_github_goog
 archive_override(
     module_name = "flatbuffers",
     patch_args = ["-p1"],
-    patches = ["@//:third_party/flatbuffers-24.3.6-module.patch"],
+    patches = ["//third_party:flatbuffers-24.3.6-module.patch"],
     sha256 = "5d8bfbf5b1b4c47f516e7673677f0e8db0efd32f262f7a14c3fd5ff67e2bd8fc",
     strip_prefix = "flatbuffers-24.3.6",
     url = "https://github.com/google/flatbuffers/archive/refs/tags/v24.3.6.tar.gz",
