@@ -11,8 +11,8 @@ archive_override(
         "-N",
     ],
     patches = [
-        "@//:patches/fix.patch",
-        "@//:patches/new.patch",
+        "//patches:arrow_fix_includes.patch",
+        "//patches:arrow_add_bazel.patch",
     ],
     sha256 = "5d3f8db7e72fb9f65f4785b7a1634522e8d8e9657a445af53d4a34a3849857b5",
     strip_prefix = "apache-arrow-21.0.0",
