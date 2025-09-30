@@ -36,19 +36,6 @@ index 11a70ae131..1663050885 100644
 
  #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
  #ifdef _MSC_VER
-diff --git a/cpp/src/arrow/util/compression_snappy.cc b/cpp/src/arrow/util/compression_snappy.cc
-index 56d69f05d6..35ed49cb08 100644
---- a/cpp/src/arrow/util/compression_snappy.cc
-+++ b/cpp/src/arrow/util/compression_snappy.cc
-@@ -21,7 +21,7 @@
- #include <cstdint>
- #include <memory>
-
--#include <snappy.h>
-+#include "snappy.h"
-
- #include "arrow/result.h"
- #include "arrow/status.h"
 diff --git a/cpp/src/arrow/util/tracing_internal.cc b/cpp/src/arrow/util/tracing_internal.cc
 index 5e28bdb461..71f6a13db5 100644
 --- a/cpp/src/arrow/util/tracing_internal.cc
@@ -76,6 +63,94 @@ index 7ecc350d35..e7b5fc1afc 100644
 +#include "lz4.h"
 +#include "lz4frame.h"
 +#include "lz4hc.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_brotli.cc b/cpp/src/arrow/util/compression_brotli.cc
+index c5498be968..ae9ca5e739 100644
+--- a/cpp/src/arrow/util/compression_brotli.cc
++++ b/cpp/src/arrow/util/compression_brotli.cc
+@@ -21,9 +21,9 @@
+ #include <cstdint>
+ #include <memory>
+
+-#include <brotli/decode.h>
+-#include <brotli/encode.h>
+-#include <brotli/types.h>
++#include "brotli/decode.h"
++#include "brotli/encode.h"
++#include "brotli/types.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_bz2.cc b/cpp/src/arrow/util/compression_bz2.cc
+index 151c8e175a..45e0ecc889 100644
+--- a/cpp/src/arrow/util/compression_bz2.cc
++++ b/cpp/src/arrow/util/compression_bz2.cc
+@@ -27,7 +27,7 @@
+ // Avoid defining max() macro
+ #include "arrow/util/windows_compatibility.h"
+
+-#include <bzlib.h>
++#include "bzlib.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_lz4.cc b/cpp/src/arrow/util/compression_lz4.cc
+index 7ecc350d35..e7b5fc1afc 100644
+--- a/cpp/src/arrow/util/compression_lz4.cc
++++ b/cpp/src/arrow/util/compression_lz4.cc
+@@ -21,9 +21,9 @@
+ #include <cstring>
+ #include <memory>
+
+-#include <lz4.h>
+-#include <lz4frame.h>
+-#include <lz4hc.h>
++#include "lz4.h"
++#include "lz4frame.h"
++#include "lz4hc.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_snappy.cc b/cpp/src/arrow/util/compression_snappy.cc
+index 56d69f05d6..35ed49cb08 100644
+--- a/cpp/src/arrow/util/compression_snappy.cc
++++ b/cpp/src/arrow/util/compression_snappy.cc
+@@ -21,7 +21,7 @@
+ #include <cstdint>
+ #include <memory>
+
+-#include <snappy.h>
++#include "snappy.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_zlib.cc b/cpp/src/arrow/util/compression_zlib.cc
+index 157716c367..23227ee804 100644
+--- a/cpp/src/arrow/util/compression_zlib.cc
++++ b/cpp/src/arrow/util/compression_zlib.cc
+@@ -23,8 +23,8 @@
+ #include <limits>
+ #include <memory>
+
+-#include <zconf.h>
+-#include <zlib.h>
++#include "zconf.h"
++#include "zlib.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/compression_zstd.cc b/cpp/src/arrow/util/compression_zstd.cc
+index 8a8a6d4619..22fed2149f 100644
+--- a/cpp/src/arrow/util/compression_zstd.cc
++++ b/cpp/src/arrow/util/compression_zstd.cc
+@@ -21,7 +21,7 @@
+ #include <cstdint>
+ #include <memory>
+
+-#include <zstd.h>
++#include "zstd.h"
 
  #include "arrow/result.h"
  #include "arrow/status.h"

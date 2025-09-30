@@ -227,7 +227,7 @@ index 0000000000..e3302eaf1c
 +        "@opentelemetry-proto//:trace_service_proto_cc",
 +        "@protobuf",
 +        "@rapidjson",
-+        "@snappy",
++        "@snappy", "@brotli", "@bzip2", "@zlib", "@zstd",
 +        "@xsimd", "@lz4//:lz4_frame",
 +    ],
 +)
