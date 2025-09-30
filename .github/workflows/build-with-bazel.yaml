@@ -1,0 +1,17 @@
+# .github/workflows/build-with-bazel.yml
+name: Build with Bazel
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bazelisk
+        uses: bazelbuild/setup-bazelisk@v2
+
+      - name: Build library
+        run: bazel build @arrow//cpp/src/arrow:core
