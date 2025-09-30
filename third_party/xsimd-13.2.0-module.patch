@@ -1,0 +1,42 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+new file mode 100644
+index 0000000..db6a443
+--- /dev/null
++++ b/BUILD.bazel
+@@ -0,0 +1,26 @@
++package(default_visibility = ["//visibility:public"])
++
++licenses(["notice"])  # BSD 3-Clause
++
++exports_files(["LICENSE"])
++
++cc_library(
++    name = "xsimd",
++    srcs = [],
++    hdrs = glob(
++        [
++            "include/xsimd/**/*.hpp",
++        ],
++        exclude = [
++        ],
++    ),
++    copts = [],
++    defines = [],
++    includes = [
++        "include",
++    ],
++    linkopts = [],
++    visibility = ["//visibility:public"],
++    deps = [
++    ],
++)
+diff --git a/MODULE.bazel b/MODULE.bazel
+new file mode 100644
+index 0000000..e696e89
+--- /dev/null
++++ b/MODULE.bazel
+@@ -0,0 +1,4 @@
++module(
++    name = "xsimd",
++    version = "13.2.0",
++)

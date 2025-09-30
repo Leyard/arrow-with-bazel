@@ -1,0 +1,100 @@
+--- /dev/null
++++ b/BUILD.bazel
+@@ -0,0 +1,87 @@
++package(default_visibility = ["//visibility:public"])
++
++proto_library(
++    name = "type_proto",
++    srcs = ["proto/substrait/type.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        "@protobuf//:empty_proto",
++    ],
++)
++
++proto_library(
++    name = "parameterized_types_proto",
++    srcs = ["proto/substrait/parameterized_types.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":type_proto",
++    ],
++)
++
++proto_library(
++    name = "type_expressions_proto",
++    srcs = ["proto/substrait/type_expressions.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":type_proto",
++    ],
++)
++
++proto_library(
++    name = "extensions_proto",
++    srcs = ["proto/substrait/extensions/extensions.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        "@protobuf//:any_proto",
++    ],
++)
++
++proto_library(
++    name = "algebra_proto",
++    srcs = ["proto/substrait/algebra.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":extensions_proto",
++        ":type_proto",
++        "@protobuf//:any_proto",
++    ],
++)
++
++proto_library(
++    name = "plan_proto",
++    srcs = ["proto/substrait/plan.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":algebra_proto",
++        ":extensions_proto",
++    ],
++)
++
++proto_library(
++    name = "capabilities_proto",
++    srcs = ["proto/substrait/capabilities.proto"],
++    strip_import_prefix = "proto",
++)
++
++proto_library(
++    name = "extended_expression_proto",
++    srcs = ["proto/substrait/extended_expression.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":algebra_proto",
++        ":extensions_proto",
++        ":plan_proto",
++        ":type_proto",
++    ],
++)
++
++proto_library(
++    name = "function_proto",
++    srcs = ["proto/substrait/function.proto"],
++    strip_import_prefix = "proto",
++    deps = [
++        ":parameterized_types_proto",
++        ":type_expressions_proto",
++        ":type_proto",
++    ],
++)
+
+--- /dev/null
++++ b/MODULE.bazel
+@@ -0,0 +1,6 @@
++module(
++    name = "substrait",
++    version = "0.74.1",
++)
++
++bazel_dep(name = "protobuf", version = "32.0")

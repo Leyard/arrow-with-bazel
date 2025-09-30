@@ -1,0 +1,1345 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+new file mode 100644
+index 0000000000..61e77ff109
+--- /dev/null
++++ b/MODULE.bazel
+@@ -0,0 +1,81 @@
++module(
++    name = "arrow",
++    version = "21.0.0",
++)
++
++bazel_dep(name = "boost.multiprecision", version = "1.88.0.bcr.1")
++bazel_dep(name = "rapidjson", version = "1.1.0.bcr.20241007")
++bazel_dep(name = "thrift", version = "0.22.0")
++archive_override(
++    module_name = "thrift",
++    patch_args = ["-p1", "-N"],
++    patches = ["@//:third_party/thrift-0.22.0-module.patch"],
++    sha256 = "c4649c5879dd56c88f1e7a1c03e0fbfcc3b2a2872fb81616bffba5aa8a225a37",
++    strip_prefix = "thrift-0.22.0",
++    url = "https://github.com/apache/thrift/archive/refs/tags/v0.22.0.tar.gz",
++)
++
++bazel_dep(name = "re2", version = "2025-08-12")
++bazel_dep(name = "snappy", version = "1.2.2")
++bazel_dep(name = "xsimd", version = "13.2.0")
++archive_override(
++    module_name = "xsimd",
++    patch_args = ["-p1", "-N"],
++    patches = ["@//:third_party/xsimd-13.2.0-module.patch"],
++    sha256 = "edd8cd3d548c185adc70321c53c36df41abe64c1fe2c67bc6d93c3ecda82447a",
++    strip_prefix = "xsimd-13.2.0",
++    url = "https://github.com/xtensor-stack/xsimd/archive/refs/tags/13.2.0.tar.gz",
++)
++
++bazel_dep(name = "protobuf", version = "32.1")
++bazel_dep(name = "rules_proto_grpc_cpp", version = "5.6.0")
++bazel_dep(name = "opentelemetry-cpp", version = "1.19.0")
++bazel_dep(name = "opentelemetry-proto", version = "1.7.0")
++
++# Pin a newer version to avoid some bugs
++bazel_dep(name = "grpc", version = "1.74.1")
++
++# bazel_dep(name = "opentelemetry-proto", version = "1.8.0")  # optional if using versioned release
++# archive_override(
++#     module_name = "opentelemetry-proto",
++#     url = "https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.8.0.tar.gz",
++#     strip_prefix = "opentelemetry-proto-1.8.0",
++#     sha256 = "057812cab50122c0fd504aae57b0b58424a5ec05d1b07889814bdfc7699abbe7",
++#     patches = ["@//:third_party/opentelemetry-proto-1.8.0-module.patch"],
++#     patch_args = ["-p1"],
++# )
++bazel_dep(name = "lz4", version = "1.10.0.bcr.1")
++
++# bazel_dep(name = "substrait", version = "0.74.1")
++# archive_override(
++#     module_name = "substrait",
++#     url = "https://github.com/substrait-io/substrait/archive/refs/tags/v0.74.1.tar.gz",
++#     strip_prefix = "substrait-0.74.1",
++#     sha256 = "39896ed45484e3a46ccd16b77360a4b1c5d9e090d15d66849d5da64ddb0f74c7",
++#     patches = ["@//:third_party/substrait-0.74.1-module.patch"],
++#     patch_args = ["-p1"],
++# )
++bazel_dep(name = "substrait", version = "0.44.0")
++archive_override(
++    module_name = "substrait",
++    patch_args = ["-p1", "-N"],
++    patches = ["@//:third_party/substrait-0.44.0-module.patch"],
++    sha256 = "f989a862f694e7dbb695925ddb7c4ce06aa6c51aca945105c075139aed7e55a2",
++    strip_prefix = "substrait-0.44.0",
++    url = "https://github.com/substrait-io/substrait/archive/refs/tags/v0.44.0.tar.gz",
++)
++
++bazel_dep(name = "jemalloc", version = "5.3.0-bcr.alpha.4")
++
++# Pin the flatbuffers version, 24.3.6
++bazel_dep(name = "flatbuffers", version = "24.3.6", repo_name = "com_github_google_flatbuffers")
++archive_override(
++    module_name = "flatbuffers",
++    patch_args = ["-p1"],
++    patches = ["@//:third_party/flatbuffers-24.3.6-module.patch"],
++    sha256 = "5d8bfbf5b1b4c47f516e7673677f0e8db0efd32f262f7a14c3fd5ff67e2bd8fc",
++    strip_prefix = "flatbuffers-24.3.6",
++    url = "https://github.com/google/flatbuffers/archive/refs/tags/v24.3.6.tar.gz",
++)
++
++# bazel_dep(name = "rules_proto_grpc_cpp", version = "5.7.1")
+diff --git a/cpp/src/arrow/BUILD.bazel b/cpp/src/arrow/BUILD.bazel
+new file mode 100644
+index 0000000000..e3302eaf1c
+--- /dev/null
++++ b/cpp/src/arrow/BUILD.bazel
+@@ -0,0 +1,225 @@
++package(default_visibility = ["//visibility:public"])
++
++# Generate the header file, util/config.h
++genrule(
++    name = "util_config_h",
++    srcs = ["util/config.h.cmake"],
++    outs = ["util/config.h"],
++    cmd = """
++        # Start with the source file
++        cat $(location util/config.h.cmake) > $@
++
++        # Perform @VAR@ substitutions
++        sed \
++            -e 's/@ARROW_VERSION_MAJOR@/21/g' \
++            -e 's/@ARROW_VERSION_MINOR@/0/g' \
++            -e 's/@ARROW_VERSION_PATCH@/0/g' \
++            -e 's/@ARROW_VERSION@/21.0.0/g' \
++            -e 's/@ARROW_SO_VERSION@/2100/g' \
++            -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
++            -e 's/@ARROW_CXX_COMPILER_ID@/GNU/g' \
++            -e 's/@ARROW_CXX_COMPILER_VERSION@/13.3.0/g' \
++            -e 's/@CMAKE_CXX_FLAGS@/-O2/g' \
++            -e 's/@UPPERCASE_BUILD_TYPE@/RELEASE/g' \
++            -e 's/@ARROW_PACKAGE_KIND@/dev/g' \
++            $< >$@
++
++        # Perform #cmakedefine substitutions
++        # Use native int128 instead of boost::multi_precision
++        sed -i'' -e 's/#cmakedefine ARROW_USE_NATIVE_INT128/#define ARROW_USE_NATIVE_INT128/g' $@
++        sed -i'' -e 's/#cmakedefine ARROW_WITH_OPENTELEMETRY/#define ARROW_WITH_OPENTELEMETRY/g' $@
++        # Use jemalloc but not vendored
++        sed -i'' -e 's/#cmakedefine ARROW_JEMALLOC_VENDORED/#undef ARROW_JEMALLOC_VENDORED/g' $@
++        sed -i'' -e 's/#cmakedefine ARROW_JEMALLOC/#define ARROW_JEMALLOC/g' $@
++        sed -i'' -e 's/#cmakedefine/#undef/g' $@
++    """,
++)
++
++# Generate the header file, util/config_internal.h
++genrule(
++    name = "util_config_internal_h",
++    srcs = ["util/config_internal.h.cmake"],
++    outs = ["util/config_internal.h"],
++    cmd = """
++        # Start with the source file
++        cat $(location util/config_internal.h.cmake) > $@
++
++        # Perform @VAR@ substitutions
++        sed \
++            -e 's/@ARROW_GIT_ID@/ee4d09ebef/g' \
++            -e 's/@ARROW_GIT_DESCRIPTION@/apache-arrow-21.0.0-rc6/g' \
++            $< >$@
++    """,
++)
++
++cc_library(
++    name = "core",
++    srcs = glob(
++        [
++            "*.cc",
++            "array/*.cc",
++            "c/*.cc",
++            "compute/**/*.cc",
++            "extension/*.cc",
++            "io/*.cc",
++            "json/*.cc",
++            "telemetry/*.cc",
++            "tensor/*.cc",
++            "util/*.cc",
++            "vendored/**/*.cpp",
++            "vendored/**/*.cc",
++            # "testing/*.cc",
++        ],
++        exclude = [
++            "**/*_test.cc",
++            "**/test_*.cc",
++            "util/*_test.cc",
++            # "util/*simd*.cc",
++            "**/*avx*.cc", "**/*512*.cc",
++            "**/*_benchmark.cc",
++            "**/benchmark_*.cc",
++            "io/hdfs*.cc",
++            "vendored/datetime/tz.cpp",
++        ],
++    ),  #  + ["compute/test_util_internal.cc"],
++    hdrs = glob(
++        [
++            "*.h",
++            "array/*.h",
++            "c/*.h",
++            "compute/**/*.h",
++            "compute/kernels/*.inc.cc",
++            "extension/*.h",
++            "io/*.h",
++            "json/*.h",
++            "telemetry/*.h",
++            "tensor/*.h",
++            "util/*.h",
++            "vendored/**/*.h",
++            "vendored/**/*.hpp",
++            "vendored/datetime/tz.cpp",  # being included like a header file
++            # "testing/*.h",
++        ],
++        exclude = [
++            "**/*_test.h",
++            "**/test_*.h",
++            # "util/*simd*.h",
++            "**/*avx*.h", "**/*512*.h",
++            "io/hdfs*.h",
++        ],
++    ) + [
++        ":util_config_h",
++        ":util_config_internal_h",
++    ],  #  + ["compute/test_util_internal.h"],
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    include_prefix = "arrow",
++    strip_include_prefix = "",
++    deps = [
++        "@jemalloc",
++        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
++        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_log_record_exporter",
++        "@opentelemetry-proto//:trace_service_proto_cc",
++        "@protobuf",
++        "@rapidjson",
++        "@snappy",
++        "@xsimd", "@lz4//:lz4_frame",
++    ],
++)
++
++cc_library(
++    name = "base",
++    srcs = glob(
++        [
++            "*.cc",
++            # "array/*.cc",
++            # "c/*.cc",
++            # "compute/**/*.cc",
++            # "extension/*.cc",
++            # "io/*.cc",
++            # "json/*.cc",
++            # "telemetry/*.cc",
++            # "tensor/*.cc",
++            # "util/*.cc",
++            # "vendored/**/*.cpp",
++            # "vendored/**/*.cc",
++        ],
++        exclude = [
++            "**/*_test.cc",
++            "**/test_*.cc",
++            # "util/*_test.cc",
++            # "util/*simd512*.cc",
++            # "util/*avx512*.cc",
++            # "**/*_benchmark.cc",
++            # "**/benchmark_*.cc",
++            # "io/hdfs*.cc",
++            # "vendored/datetime/tz.cpp",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++            # "array/*.h",
++            # "c/*.h",
++            # "compute/**/*.h",
++            # "compute/kernels/*.inc.cc",
++            # "extension/*.h",
++            # "io/*.h",
++            # "json/*.h",
++            # "telemetry/*.h",
++            # "tensor/*.h",
++            # "util/*.h",
++            # "vendored/**/*.h",
++            # "vendored/**/*.hpp",
++            # "vendored/datetime/tz.cpp", # being included like a header file
++        ],
++        exclude = [
++            "**/*_test.h",
++            "**/test_*.h",
++            # "util/*simd512*.h",
++            # "util/*avx512*.h",
++            # "io/hdfs*.h",
++        ],
++    ) + [
++        ":util_config_h",
++        ":util_config_internal_h",
++    ],
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    include_prefix = "arrow",
++    strip_include_prefix = "",
++    deps = [
++        "@jemalloc",
++        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
++        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_log_record_exporter",
++        "@opentelemetry-proto//:trace_service_proto_cc",
++        "@protobuf",
++        "@rapidjson",
++        "@snappy",
++        "@xsimd",
++    ],
++)
+diff --git a/cpp/src/arrow/acero/BUILD.bazel b/cpp/src/arrow/acero/BUILD.bazel
+new file mode 100644
+index 0000000000..48186e1f89
+--- /dev/null
++++ b/cpp/src/arrow/acero/BUILD.bazel
+@@ -0,0 +1,50 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "acero",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "test_*.cc",
++            "*_test.cc",
++            "benchmark_*.cc",
++            "*_benchmark.cc",
++            "generate_fuzz_corpus.cc",
++            "generate_tensor_fuzz_corpus.cc",
++            "*_fuzz.cc",
++            "file_to_stream.cc",
++            "stream_to_file.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "test_*.h",
++            "benchmark_*.h",
++        ],
++    ),
++    include_prefix = "arrow/acero",
++    strip_include_prefix = "",
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc:ipc",
++        "//cpp/src/generated:generated",
++        "@com_github_google_flatbuffers//:flatbuffers",
++    ],
++)
+diff --git a/cpp/src/arrow/csv/BUILD.bazel b/cpp/src/arrow/csv/BUILD.bazel
+new file mode 100644
+index 0000000000..6b8a630fcb
+--- /dev/null
++++ b/cpp/src/arrow/csv/BUILD.bazel
+@@ -0,0 +1,32 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "csv",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "test_*.cc",
++            "*_test.cc",
++            "*_benchmark.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "test_*.h",
++        ],
++    ),
++    include_prefix = "arrow/csv",
++    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc:ipc",
++        # "//cpp/src/generated:generated",
++        # "@com_github_google_flatbuffers//:flatbuffers",
++        # ":feather_fbs",
++    ],
++)
+diff --git a/cpp/src/arrow/dataset/BUILD.bazel b/cpp/src/arrow/dataset/BUILD.bazel
+new file mode 100644
+index 0000000000..03673a1469
+--- /dev/null
++++ b/cpp/src/arrow/dataset/BUILD.bazel
+@@ -0,0 +1,45 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "dataset",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "test_*.cc",
++            "*_test.cc",
++            "benchmark_*.cc",
++            "*_benchmark.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "test_*.h",
++            "benchmark_*.h",
++        ],
++    ),
++    include_prefix = "arrow/dataset",
++    strip_include_prefix = "",
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc:ipc",
++        "//cpp/src/generated:generated",
++        "@com_github_google_flatbuffers//:flatbuffers",
++    ],
++)
+diff --git a/cpp/src/arrow/filesystem/BUILD.bazel b/cpp/src/arrow/filesystem/BUILD.bazel
+new file mode 100644
+index 0000000000..b23a4dc587
+--- /dev/null
++++ b/cpp/src/arrow/filesystem/BUILD.bazel
+@@ -0,0 +1,55 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "filesystem",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "test_*.cc",
++            "*_test.cc",
++            "benchmark_*.cc",
++            "*_benchmark.cc",
++            "azurefs*.cc",
++            "gcsfs*.cc",
++            "hdfs*.cc",
++            "s3fs*.cc",
++            "s3*.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "test_*.h",
++            "benchmark_*.h",
++            "azurefs*.h",
++            "gcsfs*.h",
++            "hdfs*.h",
++            "s3fs*.h",
++            "s3*.h",
++        ],
++    ),
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    include_prefix = "arrow/filesystem",
++    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc",
++        "//cpp/src/generated",
++        "@com_github_google_flatbuffers//:flatbuffers",
++    ],
++)
+diff --git a/cpp/src/arrow/flight/BUILD.bazel b/cpp/src/arrow/flight/BUILD.bazel
+new file mode 100644
+index 0000000000..93d4c1a269
+--- /dev/null
++++ b/cpp/src/arrow/flight/BUILD.bazel
+@@ -0,0 +1,58 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "flight_grpc_srcs",
++    textual_hdrs = ["//format:flight_grpc_pb_srcs"],  # ← This is critical!
++)
++
++cc_library(
++    name = "flight",
++    srcs = glob(
++        [
++            "*.cc",
++            "transport/grpc/*.cc",
++        ],
++        exclude = [
++            "**/*_test.cc",
++            "**/test_*.cc",
++            "**/*_benchmark.cc",
++            "**/benchmark_*.cc",
++            "**/perf_*.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++            "transport/grpc/*.h",
++        ],
++        exclude = [
++            "**/*_test.h",
++            "**/test_*.h",
++        ],
++    ),
++    # copts = [
++    #     "-DARROW_HAVE_RUNTIME_BMI2",
++    #     "-mbmi2",
++    #     "-DARROW_HAVE_RUNTIME_AVX2",
++    #     "-mavx2",
++    #     "-DARROW_HAVE_RUNTIME_AVX512",
++    #     "-mavx512f",
++    #     "-mavx512cd",
++    #     "-mavx512bw",
++    #     "-mavx512dq",
++    #     "-mavx512vl",
++    # ],
++    include_prefix = "arrow/flight",
++    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc:ipc",
++        # "//format:flight_cc_proto",
++        "//format:flight_grpc",
++        ":flight_grpc_srcs",
++        "@grpc//:grpc++",
++        "@opentelemetry-cpp//api:api",
++    ],
++       # includes = ["."],
++    # textual_hdrs = [":flight_grpc"],
++)
+diff --git a/cpp/src/arrow/ipc/BUILD.bazel b/cpp/src/arrow/ipc/BUILD.bazel
+new file mode 100644
+index 0000000000..3ce3f939d8
+--- /dev/null
++++ b/cpp/src/arrow/ipc/BUILD.bazel
+@@ -0,0 +1,69 @@
++package(default_visibility = ["//visibility:public"])
++
++
++# flatbuffer_cc_library(
++#     name = "ipc_message_fbs",
++#     srcs = ["feather.fbs"],
++#     outs = ["Message_generated.h"],
++#     include_prefix = "arrow/ipc",
++#     flatc_args = ["--gen-mutable", "--gen-object-api"],
++# )
++
++
++load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
++
++flatbuffer_cc_library(
++    name = "feather_fbs",
++    srcs = [
++        "feather.fbs",
++    ],
++    out_prefix = "generated/",
++    cc_include_paths = ["."],
++)
++
++
++genrule(
++    name = "feather_fbs_gen",
++    srcs = ["feather.fbs"],
++    outs = ["Message_generated.h"],
++    tools = ["@flatbuffers//:flatc"],
++    cmd = "$(location @flatbuffers//:flatc) --cpp --gen-mutable --scoped-enums -o $(@D) $(location feather.fbs)",
++    visibility = ["//visibility:public"],
++)
++
++cc_library(
++    name = "ipc",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "test_*.cc",
++            "*_test.cc",
++            "*_benchmark.cc",
++            "generate_fuzz_corpus.cc",
++            "generate_tensor_fuzz_corpus.cc",
++            "*_fuzz.cc",
++            "file_to_stream.cc",
++            "stream_to_file.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "test_*.h",
++        ],
++    ),
++    include_prefix = "arrow/ipc",
++    strip_include_prefix = "",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//cpp/src/arrow:core",
++        # "//format:fbs",
++        "//cpp/src/generated:generated",
++        "@com_github_google_flatbuffers//:flatbuffers",
++        ":feather_fbs",
++    ],
++)
+diff --git a/cpp/src/generated/BUILD.bazel b/cpp/src/generated/BUILD.bazel
+new file mode 100644
+index 0000000000..f10052e0b2
+--- /dev/null
++++ b/cpp/src/generated/BUILD.bazel
+@@ -0,0 +1,11 @@
++package(default_visibility = ["//visibility:public"])
++
++
++cc_library(
++    name = "generated",
++    srcs = glob(["parquet_types.cpp"]),
++    hdrs = glob(["*_generated.h", "parquet_types.h", "parquet_types.tcc"]),
++    deps = ["@thrift", "//cpp/src/arrow:core", "//cpp/src/parquet:windows_h"],
++    include_prefix = "generated",
++    strip_include_prefix = "",
++)
+diff --git a/cpp/src/parquet/BUILD.bazel b/cpp/src/parquet/BUILD.bazel
+new file mode 100644
+index 0000000000..936dd2a9bb
+--- /dev/null
++++ b/cpp/src/parquet/BUILD.bazel
+@@ -0,0 +1,102 @@
++package(default_visibility = ["//visibility:public"])
++
++
++# Generate the header file, parquet_version.h
++genrule(
++    name = "parquet_version_h",
++    srcs = ["parquet_version.h.in"],
++    outs = ["parquet_version.h"],
++    cmd = """
++        # Start with the source file
++        cat $(location parquet_version.h.in) > $@
++
++        # Perform @VAR@ substitutions
++        sed -i'' \
++            -e 's/@ARROW_VERSION_MAJOR@/21/g' \
++            -e 's/@ARROW_VERSION_MINOR@/0/g' \
++            -e 's/@ARROW_VERSION_PATCH@/0/g' \
++            -e 's/@ARROW_SO_VERSION@/2100/g' \
++            -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
++            -e 's/@ARROW_VERSION@/21.0.0/g' \
++            $@
++    """,
++)
++
++cc_library(
++    name = "windows_h",
++    hdrs = ["windows_compatibility.h", "windows_fixup.h"],
++    include_prefix = "parquet",
++    strip_include_prefix = "",
++)
++
++
++
++cc_library(
++    name = "parquet",
++    srcs = glob(
++        [
++            "*.cc",
++            "arrow/*.cc",
++            "encryption/*.cc",
++            "geospatial/*.cc",
++        ],
++        exclude = [
++            "**/*_test.cc",
++            "**/test_*.cc",
++            "arrow/generate_fuzz_corpus.cc",
++            "util/*_test.cc",
++            "util/*simd512*.cc",
++            "util/*avx512*.cc",
++            "**/*_benchmark.cc",
++            "**/benchmark_*.cc",
++            "encryption/encryption_internal_nossl.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++            "api/*.h",
++            "arrow/*.h",
++            "encryption/*.h",
++            "geospatial/*.h",
++        ],
++        exclude = [
++            "**/*_test.h",
++            "**/test_*.h",
++            "util/*simd512*.h",
++            "util/*avx512*.h",
++            "io/hdfs*.h",
++        ],
++    ) + [":parquet_version_h"],
++    copts = [
++        # "-DARROW_HAVE_RUNTIME_BMI2",
++        # "-mbmi2",
++        # "-DARROW_HAVE_RUNTIME_AVX2",
++        # "-mavx2",
++        # "-DARROW_HAVE_RUNTIME_AVX512",
++        # "-mavx512f",
++        # "-mavx512cd",
++        # "-mavx512bw",
++        # "-mavx512dq",
++        # "-mavx512vl",
++    ],
++    include_prefix = "parquet",
++    strip_include_prefix = "",
++    deps = [
++        "@jemalloc",
++        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
++        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
++        "@opentelemetry-cpp//exporters/otlp:otlp_http_log_record_exporter",
++        "@opentelemetry-proto//:trace_service_proto_cc",
++        "@protobuf",
++        "@rapidjson",
++        "@snappy",
++        "@xsimd",
++        "@thrift",
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/ipc:ipc",
++        "//cpp/src/arrow/filesystem:filesystem",
++        "//cpp/src/generated:generated",
++    ],
++)
+diff --git a/format/BUILD.bazel b/format/BUILD.bazel
+new file mode 100644
+index 0000000000..ae18fa70ee
+--- /dev/null
++++ b/format/BUILD.bazel
+@@ -0,0 +1,79 @@
++package(default_visibility = ["//visibility:public"])
++
++load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
++load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
++
++flatbuffer_cc_library(
++    name = "fbs",
++    srcs = [
++        "File.fbs",
++        "Message.fbs",
++        "Schema.fbs",
++        "SparseTensor.fbs",
++        "Tensor.fbs",
++    ],
++    out_prefix = "generated/",
++)
++
++### flight proto
++proto_library(
++    name = "flight_proto",
++    srcs = [
++        "Flight.proto",
++    ],
++    import_prefix = "arrow/flight",
++    strip_import_prefix = "",
++    deps = [
++        "@protobuf//:any_proto",
++        "@protobuf//:descriptor_proto",
++        "@protobuf//:timestamp_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "flight_cc_proto",
++    deps = [":flight_proto"],
++)
++
++cpp_grpc_library(
++    name = "flight_grpc",
++    protos = [":flight_proto"],
++)
++
++### flight sql proto
++proto_library(
++    name = "flight_sql_proto",
++    srcs = [
++        "FlightSql.proto",
++    ],
++    import_prefix = "arrow/flight/sql",
++    strip_import_prefix = "",
++    deps = [
++        "@protobuf//:any_proto",
++        "@protobuf//:descriptor_proto",
++        "@protobuf//:timestamp_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "flight_sql_cc_proto",
++    deps = [":flight_sql_proto"],
++)
++
++### substrait proto
++proto_library(
++    name = "substrait_proto",
++    srcs = [
++        "cpp/proto/substrait/extension_rels.proto",
++    ],
++    strip_import_prefix = "cpp/proto",
++    deps = [
++        "@substrait//:algebra_proto",
++        "@substrait//:extended_expression_proto",
++    ],
++)
++
++cc_proto_library(
++    name = "substrait_pb",
++    deps = [":substrait_proto"],
++)
+diff --git a/third_party/BUILD.bazel b/third_party/BUILD.bazel
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/third_party/flatbuffers-24.3.6-module.patch b/third_party/flatbuffers-24.3.6-module.patch
+new file mode 100644
+index 0000000000..4190540d19
+--- /dev/null
++++ b/third_party/flatbuffers-24.3.6-module.patch
+@@ -0,0 +1,234 @@
++diff --git a/.bazelignore b/.bazelignore
++index 3c3629e6..c1363849 100644
++--- a/.bazelignore
+++++ b/.bazelignore
++@@ -1 +1,6 @@
++ node_modules
+++ts
+++go
+++swift
+++tests
+++reflection/ts
++diff --git a/.bazelrc b/.bazelrc
++index f9f47a74..b80995d8 100644
++--- a/.bazelrc
+++++ b/.bazelrc
++@@ -1,3 +1,4 @@
+++common --enable_bzlmod
++ # We cannot use "common" here because the "version" command doesn't support
++ # --deleted_packages. We need to specify it for both build and query instead.
++ build --deleted_packages=tests/ts/bazel_repository_test_dir
++diff --git a/BUILD.bazel b/BUILD.bazel
++index b4f015a0..8cf7a55e 100644
++--- a/BUILD.bazel
+++++ b/BUILD.bazel
++@@ -1,5 +1,3 @@
++-load("@aspect_rules_js//npm:defs.bzl", "npm_link_package")
++-load("@npm//:defs.bzl", "npm_link_all_packages")
++ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
++
++ licenses(["notice"])
++@@ -8,13 +6,6 @@ package(
++     default_visibility = ["//visibility:public"],
++ )
++
++-npm_link_all_packages(name = "node_modules")
++-
++-npm_link_package(
++-    name = "node_modules/flatbuffers",
++-    src = "//ts:flatbuffers",
++-)
++-
++ exports_files([
++     "LICENSE",
++     "tsconfig.json",
++diff --git a/MODULE.bazel b/MODULE.bazel
++new file mode 100644
++index 00000000..07deacee
++--- /dev/null
+++++ b/MODULE.bazel
++@@ -0,0 +1,9 @@
+++module(
+++    name = "flatbuffers",
+++    version = "24.3.6",
+++    compatibility_level = 1,
+++    repo_name = "com_github_google_flatbuffers",
+++)
+++
+++bazel_dep(name = "rules_cc", version = "0.2.8")
+++bazel_dep(name = "platforms", version = "1.0.0")
++diff --git a/WORKSPACE b/WORKSPACE
++deleted file mode 100644
++index e56d4ce3..00000000
++--- a/WORKSPACE
+++++ /dev/null
++@@ -1,169 +0,0 @@
++-workspace(name = "com_github_google_flatbuffers")
++-
++-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
++-
++-http_archive(
++-    name = "platforms",
++-    sha256 = "3a561c99e7bdbe9173aa653fd579fe849f1d8d67395780ab4770b1f381431d51",
++-    urls = [
++-        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
++-        "https://github.com/bazelbuild/platforms/releases/download/0.0.7/platforms-0.0.7.tar.gz",
++-    ],
++-)
++-
++-http_archive(
++-    name = "build_bazel_rules_apple",
++-    sha256 = "34c41bfb59cdaea29ac2df5a2fa79e5add609c71bb303b2ebb10985f93fa20e7",
++-    url = "https://github.com/bazelbuild/rules_apple/releases/download/3.1.1/rules_apple.3.1.1.tar.gz",
++-)
++-
++-load(
++-    "@build_bazel_rules_apple//apple:repositories.bzl",
++-    "apple_rules_dependencies",
++-)
++-
++-apple_rules_dependencies()
++-
++-http_archive(
++-    name = "build_bazel_rules_swift",
++-    sha256 = "a2fd565e527f83fb3f9eb07eb9737240e668c9242d3bc318712efa54a7deda97",
++-    url = "https://github.com/bazelbuild/rules_swift/releases/download/0.27.0/rules_swift.0.27.0.tar.gz",
++-)
++-
++-load(
++-    "@build_bazel_rules_swift//swift:repositories.bzl",
++-    "swift_rules_dependencies",
++-)
++-
++-swift_rules_dependencies()
++-
++-load(
++-    "@build_bazel_rules_swift//swift:extras.bzl",
++-    "swift_rules_extra_dependencies",
++-)
++-
++-swift_rules_extra_dependencies()
++-
++-http_archive(
++-    name = "io_bazel_rules_go",
++-    sha256 = "278b7ff5a826f3dc10f04feaf0b70d48b68748ccd512d7f98bf442077f043fe3",
++-    urls = [
++-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
++-        "https://github.com/bazelbuild/rules_go/releases/download/v0.41.0/rules_go-v0.41.0.zip",
++-    ],
++-)
++-
++-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
++-
++-go_rules_dependencies()
++-
++-##### Protobuf
++-_PROTOBUF_VERSION = "3.15.2"
++-
++-http_archive(
++-    name = "com_google_protobuf",
++-    strip_prefix = "protobuf-" + _PROTOBUF_VERSION,
++-    urls = [
++-        "https://github.com/protocolbuffers/protobuf/archive/v" + _PROTOBUF_VERSION + ".tar.gz",
++-    ],
++-)
++-
++-##### GRPC
++-_GRPC_VERSION = "1.49.0"  # https://github.com/grpc/grpc/releases/tag/v1.48.0
++-
++-http_archive(
++-    name = "com_github_grpc_grpc",
++-    patch_args = ["-p1"],
++-    patches = ["//grpc:build_grpc_with_cxx14.patch"],
++-    sha256 = "15715e1847cc9e42014f02c727dbcb48e39dbdb90f79ad3d66fe4361709ff935",
++-    strip_prefix = "grpc-" + _GRPC_VERSION,
++-    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v" + _GRPC_VERSION + ".tar.gz"],
++-)
++-
++-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
++-
++-grpc_deps()
++-
++-load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
++-
++-grpc_extra_deps()
++-
++-# rules_go from https://github.com/bazelbuild/rules_go/releases/tag/v0.34.0
++-
++-http_archive(
++-    name = "aspect_rules_js",
++-    sha256 = "76a04ef2120ee00231d85d1ff012ede23963733339ad8db81f590791a031f643",
++-    strip_prefix = "rules_js-1.34.1",
++-    url = "https://github.com/aspect-build/rules_js/releases/download/v1.34.1/rules_js-v1.34.1.tar.gz",
++-)
++-
++-load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
++-
++-rules_js_dependencies()
++-
++-load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock", "pnpm_repository")
++-
++-pnpm_repository(name = "pnpm")
++-
++-http_archive(
++-    name = "aspect_rules_ts",
++-    sha256 = "4c3f34fff9f96ffc9c26635d8235a32a23a6797324486c7d23c1dfa477e8b451",
++-    strip_prefix = "rules_ts-1.4.5",
++-    url = "https://github.com/aspect-build/rules_ts/releases/download/v1.4.5/rules_ts-v1.4.5.tar.gz",
++-)
++-
++-load("@aspect_rules_ts//ts:repositories.bzl", "rules_ts_dependencies")
++-
++-rules_ts_dependencies(
++-    # Since rules_ts doesn't always have the newest integrity hashes, we
++-    # compute it manually here.
++-    #   $ curl --silent https://registry.npmjs.org/typescript/5.3.3 | jq ._integrity
++-    ts_integrity = "sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==",
++-    ts_version_from = "//:package.json",
++-)
++-
++-load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
++-
++-nodejs_register_toolchains(
++-    name = "nodejs",
++-    node_version = DEFAULT_NODE_VERSION,
++-)
++-
++-npm_translate_lock(
++-    name = "npm",
++-    npmrc = "//:.npmrc",
++-    pnpm_lock = "//:pnpm-lock.yaml",
++-    # Set this to True when the lock file needs to be updated, commit the
++-    # changes, then set to False again.
++-    update_pnpm_lock = False,
++-    verify_node_modules_ignored = "//:.bazelignore",
++-)
++-
++-load("@npm//:repositories.bzl", "npm_repositories")
++-
++-npm_repositories()
++-
++-http_archive(
++-    name = "aspect_rules_esbuild",
++-    sha256 = "098e38e5ee868c14a6484ba263b79e57d48afacfc361ba30137c757a9c4716d6",
++-    strip_prefix = "rules_esbuild-0.15.0",
++-    url = "https://github.com/aspect-build/rules_esbuild/releases/download/v0.15.0/rules_esbuild-v0.15.0.tar.gz",
++-)
++-
++-# Register a toolchain containing esbuild npm package and native bindings
++-load("@aspect_rules_esbuild//esbuild:repositories.bzl", "LATEST_ESBUILD_VERSION", "esbuild_register_toolchains")
++-
++-esbuild_register_toolchains(
++-    name = "esbuild",
++-    esbuild_version = LATEST_ESBUILD_VERSION,
++-)
++-
++-http_file(
++-    name = "bazel_linux_x86_64",
++-    downloaded_file_path = "bazel",
++-    executable = True,
++-    sha256 = "e78fc3394deae5408d6f49a15c7b1e615901969ecf6e50d55ef899996b0b8458",
++-    urls = [
++-        "https://github.com/bazelbuild/bazel/releases/download/6.3.2/bazel-6.3.2-linux-x86_64",
++-    ],
++-)
+diff --git a/third_party/substrait-0.44.0-module.patch b/third_party/substrait-0.44.0-module.patch
+new file mode 100644
+index 0000000000..815e8d0ced
+--- /dev/null
++++ b/third_party/substrait-0.44.0-module.patch
+@@ -0,0 +1,100 @@
++--- /dev/null
+++++ b/BUILD.bazel
++@@ -0,0 +1,87 @@
+++package(default_visibility = ["//visibility:public"])
+++
+++proto_library(
+++    name = "type_proto",
+++    srcs = ["proto/substrait/type.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        "@protobuf//:empty_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "parameterized_types_proto",
+++    srcs = ["proto/substrait/parameterized_types.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":type_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "type_expressions_proto",
+++    srcs = ["proto/substrait/type_expressions.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":type_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "extensions_proto",
+++    srcs = ["proto/substrait/extensions/extensions.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        "@protobuf//:any_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "algebra_proto",
+++    srcs = ["proto/substrait/algebra.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":extensions_proto",
+++        ":type_proto",
+++        "@protobuf//:any_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "plan_proto",
+++    srcs = ["proto/substrait/plan.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":algebra_proto",
+++        ":extensions_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "capabilities_proto",
+++    srcs = ["proto/substrait/capabilities.proto"],
+++    strip_import_prefix = "proto",
+++)
+++
+++proto_library(
+++    name = "extended_expression_proto",
+++    srcs = ["proto/substrait/extended_expression.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":algebra_proto",
+++        ":extensions_proto",
+++        ":plan_proto",
+++        ":type_proto",
+++    ],
+++)
+++
+++proto_library(
+++    name = "function_proto",
+++    srcs = ["proto/substrait/function.proto"],
+++    strip_import_prefix = "proto",
+++    deps = [
+++        ":parameterized_types_proto",
+++        ":type_expressions_proto",
+++        ":type_proto",
+++    ],
+++)
++
++--- /dev/null
+++++ b/MODULE.bazel
++@@ -0,0 +1,6 @@
+++module(
+++    name = "substrait",
+++    version = "0.74.1",
+++)
+++
+++bazel_dep(name = "protobuf", version = "32.0")
+diff --git a/third_party/thrift-0.22.0-module.patch b/third_party/thrift-0.22.0-module.patch
+new file mode 100644
+index 0000000000..b20775b313
+--- /dev/null
++++ b/third_party/thrift-0.22.0-module.patch
+@@ -0,0 +1,69 @@
++--- /dev/null
+++++ b/MODULE.bazel
++@@ -0,0 +1,11 @@
+++module(
+++    name = "thrift",
+++    version = "0.22.0",
+++)
+++
+++bazel_dep(name = "boost.algorithm", version = "1.88.0.bcr.1")
+++bazel_dep(name = "boost.numeric_conversion", version = "1.88.0.bcr.1")
+++bazel_dep(name = "boost.tokenizer", version = "1.88.0.bcr.1")
+++bazel_dep(name = "boost.uuid", version = "1.88.0.bcr.1")
+++bazel_dep(name = "libevent", version = "2.1.12-stable.bcr.0")
+++bazel_dep(name = "zlib", version = "1.3.1.bcr.6")
++
++--- /dev/null
+++++ b/BUILD.bazel
++@@ -0,0 +1,51 @@
+++package(default_visibility = ["//visibility:public"])
+++
+++filegroup(
+++    name = "all_srcs",
+++    srcs = glob(["**"]),
+++)
+++
+++cc_library(
+++    name = "thrift",
+++    srcs = glob([
+++        "lib/cpp/src/thrift/**/*.h",
+++    ]) + [
+++        "lib/cpp/src/thrift/protocol/TProtocol.cpp",
+++        "lib/cpp/src/thrift/transport/TBufferTransports.cpp",
+++        "lib/cpp/src/thrift/transport/TTransportException.cpp",
+++    ],
+++    hdrs = [
+++        "compiler/cpp/src/thrift/version.h",
+++        "lib/cpp/src/thrift/config.h",
+++    ],
+++    includes = [
+++        "lib/cpp/src",
+++    ],
+++    textual_hdrs = [
+++        "lib/cpp/src/thrift/protocol/TBinaryProtocol.tcc",
+++        "lib/cpp/src/thrift/protocol/TCompactProtocol.tcc",
+++    ],
+++    deps = [
+++        "@boost.algorithm",
+++        "@boost.numeric_conversion",
+++        "@boost.tokenizer",
+++        "@libevent//:event",
+++        "@zlib",
+++    ],
+++)
+++
+++genrule(
+++    name = "config_h",
+++    srcs = ["build/cmake/config.h.in"],
+++    outs = ["lib/cpp/src/thrift/config.h"],
+++    cmd = ("sed " +
+++           "-e 's/cmakedefine/define/g' " +
+++           "-e 's/$${PACKAGE}/thrift/g' " +
+++           "-e 's/$${PACKAGE_BUGREPORT}//g' " +
+++           "-e 's/$${PACKAGE_NAME}/thrift/g' " +
+++           "-e 's/$${PACKAGE_TARNAME}/thrift/g' " +
+++           "-e 's/$${PACKAGE_URL}//g' " +
+++           "-e 's/$${PACKAGE_VERSION}/0.22.0/g' " +
+++           "-e 's/$${PACKAGE_STRING}/thrift 0.22.0/g' " +
+++           "$< >$@"),
+++)
+diff --git a/third_party/xsimd-13.2.0-module.patch b/third_party/xsimd-13.2.0-module.patch
+new file mode 100644
+index 0000000000..3057852976
+--- /dev/null
++++ b/third_party/xsimd-13.2.0-module.patch
+@@ -0,0 +1,42 @@
++diff --git a/BUILD.bazel b/BUILD.bazel
++new file mode 100644
++index 0000000..db6a443
++--- /dev/null
+++++ b/BUILD.bazel
++@@ -0,0 +1,26 @@
+++package(default_visibility = ["//visibility:public"])
+++
+++licenses(["notice"])  # BSD 3-Clause
+++
+++exports_files(["LICENSE"])
+++
+++cc_library(
+++    name = "xsimd",
+++    srcs = [],
+++    hdrs = glob(
+++        [
+++            "include/xsimd/**/*.hpp",
+++        ],
+++        exclude = [
+++        ],
+++    ),
+++    copts = [],
+++    defines = [],
+++    includes = [
+++        "include",
+++    ],
+++    linkopts = [],
+++    visibility = ["//visibility:public"],
+++    deps = [
+++    ],
+++)
++diff --git a/MODULE.bazel b/MODULE.bazel
++new file mode 100644
++index 0000000..e696e89
++--- /dev/null
+++++ b/MODULE.bazel
++@@ -0,0 +1,4 @@
+++module(
+++    name = "xsimd",
+++    version = "13.2.0",
+++)

@@ -1,0 +1,81 @@
+diff --git a/cpp/src/arrow/acero/aggregate_node.h b/cpp/src/arrow/acero/aggregate_node.h
+index 0c6fea16a8..b08558a178 100644
+--- a/cpp/src/arrow/acero/aggregate_node.h
++++ b/cpp/src/arrow/acero/aggregate_node.h
+@@ -24,7 +24,7 @@
+
+ #include "arrow/acero/visibility.h"
+ #include "arrow/compute/api_aggregate.h"
+-#include "arrow/compute/test_util_internal.h"
++// #include "arrow/compute/test_util_internal.h"
+ #include "arrow/compute/type_fwd.h"
+ #include "arrow/result.h"
+ #include "arrow/type_fwd.h"
+diff --git a/cpp/src/arrow/io/api.h b/cpp/src/arrow/io/api.h
+index d55b2c2d55..7128673afb 100644
+--- a/cpp/src/arrow/io/api.h
++++ b/cpp/src/arrow/io/api.h
+@@ -20,6 +20,6 @@
+ #include "arrow/io/buffered.h"
+ #include "arrow/io/compressed.h"
+ #include "arrow/io/file.h"
+-#include "arrow/io/hdfs.h"
++// #include "arrow/io/hdfs.h"
+ #include "arrow/io/interfaces.h"
+ #include "arrow/io/memory.h"
+diff --git a/cpp/src/arrow/telemetry/logging.cc b/cpp/src/arrow/telemetry/logging.cc
+index 11a70ae131..1663050885 100644
+--- a/cpp/src/arrow/telemetry/logging.cc
++++ b/cpp/src/arrow/telemetry/logging.cc
+@@ -42,7 +42,7 @@
+
+ #include <opentelemetry/exporters/otlp/protobuf_include_prefix.h>
+
+-#include <opentelemetry/proto/collector/logs/v1/logs_service.pb.h>
++#include "opentelemetry/proto/collector/logs/v1/logs_service.pb.h"
+
+ #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
+ #ifdef _MSC_VER
+diff --git a/cpp/src/arrow/util/compression_snappy.cc b/cpp/src/arrow/util/compression_snappy.cc
+index 56d69f05d6..35ed49cb08 100644
+--- a/cpp/src/arrow/util/compression_snappy.cc
++++ b/cpp/src/arrow/util/compression_snappy.cc
+@@ -21,7 +21,7 @@
+ #include <cstdint>
+ #include <memory>
+
+-#include <snappy.h>
++#include "snappy.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
+diff --git a/cpp/src/arrow/util/tracing_internal.cc b/cpp/src/arrow/util/tracing_internal.cc
+index 5e28bdb461..71f6a13db5 100644
+--- a/cpp/src/arrow/util/tracing_internal.cc
++++ b/cpp/src/arrow/util/tracing_internal.cc
+@@ -43,7 +43,7 @@
+
+ #include <opentelemetry/exporters/otlp/protobuf_include_prefix.h>
+ #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
+-#include <opentelemetry/proto/collector/trace/v1/trace_service.pb.h>
++#include "opentelemetry/proto/collector/trace/v1/trace_service.pb.h"
+ #ifdef _MSC_VER
+ #  pragma warning(pop)
+ #endif
+ diff --git a/cpp/src/arrow/util/compression_lz4.cc b/cpp/src/arrow/util/compression_lz4.cc
+index 7ecc350d35..e7b5fc1afc 100644
+--- a/cpp/src/arrow/util/compression_lz4.cc
++++ b/cpp/src/arrow/util/compression_lz4.cc
+@@ -21,9 +21,9 @@
+ #include <cstring>
+ #include <memory>
+
+-#include <lz4.h>
+-#include <lz4frame.h>
+-#include <lz4hc.h>
++#include "lz4.h"
++#include "lz4frame.h"
++#include "lz4hc.h"
+
+ #include "arrow/result.h"
+ #include "arrow/status.h"
