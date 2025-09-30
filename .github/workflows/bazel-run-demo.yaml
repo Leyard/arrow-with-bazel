@@ -1,5 +1,5 @@
-# .github/workflows/build-with-bazel.yaml
-name: Build with Bazel
+# .github/workflows/bazel-run-demo.yaml
+name: Bazel run demo
 
 on: [push, pull_request]
 
@@ -20,5 +20,5 @@ jobs:
             # Share repository cache between workflows.
             repository-cache: true
 
-      - name: Build library
-        run: bazel build @arrow//cpp/src/arrow:core
+      - name: Run demo
+        run: bazel run //:main
