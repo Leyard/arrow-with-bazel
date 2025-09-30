@@ -49,23 +49,6 @@ index 5e28bdb461..71f6a13db5 100644
  #ifdef _MSC_VER
  #  pragma warning(pop)
  #endif
- diff --git a/cpp/src/arrow/util/compression_lz4.cc b/cpp/src/arrow/util/compression_lz4.cc
-index 7ecc350d35..e7b5fc1afc 100644
---- a/cpp/src/arrow/util/compression_lz4.cc
-+++ b/cpp/src/arrow/util/compression_lz4.cc
-@@ -21,9 +21,9 @@
- #include <cstring>
- #include <memory>
-
--#include <lz4.h>
--#include <lz4frame.h>
--#include <lz4hc.h>
-+#include "lz4.h"
-+#include "lz4frame.h"
-+#include "lz4hc.h"
-
- #include "arrow/result.h"
- #include "arrow/status.h"
 diff --git a/cpp/src/arrow/util/compression_brotli.cc b/cpp/src/arrow/util/compression_brotli.cc
 index c5498be968..ae9ca5e739 100644
 --- a/cpp/src/arrow/util/compression_brotli.cc
