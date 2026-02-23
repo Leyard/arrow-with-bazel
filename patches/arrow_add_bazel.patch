@@ -21,13 +21,12 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/MODULE.bazel
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,67 @@
 +module(
 +    name = "arrow",
 +    version = "21.0.0",
 +)
 +
-+bazel_dep(name = "platforms", version = "0.0.10")
 +bazel_dep(name = "bazel_skylib", version = "1.7.1")
 +bazel_dep(name = "boost.multiprecision", version = "1.83.0.bcr.4")
 +bazel_dep(name = "rapidjson", version = "1.1.0.bcr.20241007")
@@ -95,7 +94,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/BUILD.bazel
-@@ -0,0 +1,206 @@
+@@ -0,0 +1,202 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
@@ -142,10 +141,6 @@ index 0000000000..0000000000
 +    "//conditions:default": [],
 +})
 +
-+ARROW_PLATFORM_COPTS = select({
-+    "@platforms//os:macos": ["-faligned-allocation"],
-+    "//conditions:default": [],
-+})
 +
 +# Generate the header file, util/config.h
 +genrule(
@@ -280,7 +275,7 @@ index 0000000000..0000000000
 +        ":util_config_h",
 +        ":util_config_internal_h",
 +    ],
-+    copts = ARROW_AVX2_COPTS + ARROW_AVX512_COPTS + ARROW_PLATFORM_COPTS,
++    copts = ARROW_AVX2_COPTS + ARROW_AVX512_COPTS,
 +    include_prefix = "arrow",
 +    strip_include_prefix = "",
 +    deps = [
@@ -307,7 +302,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/acero/BUILD.bazel
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,49 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -347,9 +342,6 @@ index 0000000000..0000000000
 +            "-mbmi2",
 +        ],
 +        "//conditions:default": [],
-+    }) + select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
 +    }),
 +    include_prefix = "arrow/acero",
 +    strip_include_prefix = "",
@@ -365,7 +357,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/csv/BUILD.bazel
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,30 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -388,10 +380,7 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/csv",
 +    strip_include_prefix = "",
 +    deps = [
@@ -404,7 +393,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/dataset/BUILD.bazel
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,40 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -431,10 +420,7 @@ index 0000000000..0000000000
 +            "file_orc*",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/dataset",
 +    strip_include_prefix = "",
 +    deps = [
@@ -453,7 +439,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/engine/BUILD.bazel
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,43 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -466,6 +452,7 @@ index 0000000000..0000000000
 +            "**/*_test.cc",
 +            "**/test_*.cc",
 +            "**/*_benchmark.cc",
++            "**/*_test_util*",
 +        ],
 +    ),
 +    hdrs = glob(
@@ -476,19 +463,17 @@ index 0000000000..0000000000
 +        exclude = [
 +            "**/*_test.h",
 +            "**/test_*.h",
++            "**/*_test_util*",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/engine",
 +    strip_include_prefix = "",
 +    deps = [
 +        "//cpp/src/arrow:core",
 +        "//cpp/src/arrow/acero:acero",
 +        "//cpp/src/arrow/dataset:dataset",
-+        "//format:substrait_pb",
++        "//cpp/proto:substrait_pb",
 +        "@protobuf",
 +        "@substrait//:algebra_cc_proto",
 +        "@substrait//:extended_expression_cc_proto",
@@ -503,7 +488,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/filesystem/BUILD.bazel
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,44 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -538,10 +523,7 @@ index 0000000000..0000000000
 +            "s3*.h",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/filesystem",
 +    strip_include_prefix = "",
 +    deps = [
@@ -556,7 +538,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/flight/BUILD.bazel
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,39 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -572,6 +554,7 @@ index 0000000000..0000000000
 +            "**/*_benchmark.cc",
 +            "**/benchmark_*.cc",
 +            "**/perf_*.cc",
++            "transport/grpc/protocol_grpc_internal.cc",
 +        ],
 +    ),
 +    hdrs = glob(
@@ -584,10 +567,7 @@ index 0000000000..0000000000
 +            "**/test_*.h",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/flight",
 +    strip_include_prefix = "",
 +    deps = [
@@ -603,7 +583,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/flight/sql/BUILD.bazel
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,34 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -616,6 +596,7 @@ index 0000000000..0000000000
 +            "*_test.cc",
 +            "test_*.cc",
 +            "*_benchmark.cc",
++            "protocol_internal.cc",
 +        ],
 +    ),
 +    hdrs = glob(
@@ -627,10 +608,7 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/flight/sql",
 +    strip_include_prefix = "",
 +    deps = [
@@ -645,7 +623,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/ipc/BUILD.bazel
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,48 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
@@ -684,10 +662,7 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
-+    copts = select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
-+    }),
++
 +    include_prefix = "arrow/ipc",
 +    strip_include_prefix = "",
 +    deps = [
@@ -726,7 +701,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/parquet/BUILD.bazel
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,98 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +# Generate the header file, parquet_version.h
@@ -803,9 +778,6 @@ index 0000000000..0000000000
 +            "-mbmi2",
 +        ],
 +        "//conditions:default": [],
-+    }) + select({
-+        "@platforms//os:macos": ["-faligned-allocation"],
-+        "//conditions:default": [],
 +    }),
 +    include_prefix = "parquet",
 +    strip_include_prefix = "",
@@ -833,7 +805,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/format/BUILD.bazel
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,63 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
@@ -896,13 +868,21 @@ index 0000000000..0000000000
 +    deps = [":flight_sql_proto"],
 +)
 +
-+### substrait proto
++
+diff --git a/cpp/proto/BUILD.bazel b/cpp/proto/BUILD.bazel
+new file mode 100644
+index 0000000000..0000000000
+--- /dev/null
++++ b/cpp/proto/BUILD.bazel
+@@ -0,0 +1,18 @@
++package(default_visibility = ["//visibility:public"])
++
 +proto_library(
 +    name = "substrait_proto",
 +    srcs = [
-+        "cpp/proto/substrait/extension_rels.proto",
++        "substrait/extension_rels.proto",
 +    ],
-+    strip_import_prefix = "cpp/proto",
++    strip_import_prefix = "",
 +    deps = [
 +        "@substrait//:algebra_proto",
 +        "@substrait//:extended_expression_proto",
