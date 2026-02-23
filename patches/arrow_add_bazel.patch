@@ -95,7 +95,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/BUILD.bazel
-@@ -0,0 +1,195 @@
+@@ -0,0 +1,206 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
@@ -222,13 +222,21 @@ index 0000000000..0000000000
 +            "vendored/datetime/tz.cpp",
 +        ],
 +    ) + select({
-+        ":avx2_enabled": glob(["**/*avx2*.cc"]),
++        ":avx2_enabled": [
++            "compute/kernels/aggregate_basic_avx2.cc",
++            "compute/key_hash_internal_avx2.cc",
++            "compute/key_map_internal_avx2.cc",
++            "compute/row/compare_internal_avx2.cc",
++            "compute/row/encode_internal_avx2.cc",
++            "compute/util_avx2.cc",
++            "util/bpacking_avx2.cc",
++        ],
 +        "//conditions:default": [],
 +    }) + select({
-+        ":avx512_enabled": glob(
-+            ["**/*avx512*.cc", "**/*512*.cc"],
-+            exclude = ["**/*avx2*.cc"],
-+        ),
++        ":avx512_enabled": [
++            "compute/kernels/aggregate_basic_avx512.cc",
++            "util/bpacking_avx512.cc",
++        ],
 +        "//conditions:default": [],
 +    }),
 +    hdrs = glob(
@@ -257,13 +265,16 @@ index 0000000000..0000000000
 +            "io/hdfs*.h",
 +        ],
 +    ) + select({
-+        ":avx2_enabled": glob(["**/*avx2*.h"]),
++        ":avx2_enabled": [
++            "compute/row/row_util_avx2_internal.h",
++            "util/bpacking_avx2_internal.h",
++        ],
 +        "//conditions:default": [],
 +    }) + select({
-+        ":avx512_enabled": glob(
-+            ["**/*avx512*.h", "**/*512*.h"],
-+            exclude = ["**/*avx2*.h"],
-+        ),
++        ":avx512_enabled": [
++            "util/bpacking_avx512_internal.h",
++            "util/bpacking_simd512_generated_internal.h",
++        ],
 +        "//conditions:default": [],
 +    }) + [
 +        ":util_config_h",
@@ -296,7 +307,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/acero/BUILD.bazel
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,52 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -313,7 +324,10 @@ index 0000000000..0000000000
 +            "*avx2*",
 +        ],
 +    ) + select({
-+        "//cpp/src/arrow:avx2_enabled": glob(["*avx2*.cc"]),
++        "//cpp/src/arrow:avx2_enabled": [
++            "bloom_filter_avx2.cc",
++            "swiss_join_avx2.cc",
++        ],
 +        "//conditions:default": [],
 +    }),
 +    hdrs = glob(
@@ -323,12 +337,8 @@ index 0000000000..0000000000
 +        exclude = [
 +            "test_*.h",
 +            "benchmark_*.h",
-+            "*avx2*",
 +        ],
-+    ) + select({
-+        "//cpp/src/arrow:avx2_enabled": glob(["*avx2*.h"]),
-+        "//conditions:default": [],
-+    }),
++    ),
 +    copts = select({
 +        "//cpp/src/arrow:avx2_enabled": [
 +            "-DARROW_HAVE_RUNTIME_AVX2",
@@ -394,7 +404,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/dataset/BUILD.bazel
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,43 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -422,14 +432,6 @@ index 0000000000..0000000000
 +        ],
 +    ),
 +    copts = select({
-+        "//cpp/src/arrow:avx2_enabled": [
-+            "-DARROW_HAVE_RUNTIME_AVX2",
-+            "-mavx2",
-+            "-DARROW_HAVE_RUNTIME_BMI2",
-+            "-mbmi2",
-+        ],
-+        "//conditions:default": [],
-+    }) + select({
 +        "@platforms//os:macos": ["-faligned-allocation"],
 +        "//conditions:default": [],
 +    }),
@@ -724,7 +726,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/parquet/BUILD.bazel
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,101 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +# Generate the header file, parquet_version.h
@@ -769,10 +771,14 @@ index 0000000000..0000000000
 +            "util/*avx512*.cc",
 +            "**/*_benchmark.cc",
 +            "**/benchmark_*.cc",
++            "*avx2*",
 +        ],
 +    ) + [
 +        "encryption/encryption_internal_nossl.cc",
-+    ],
++    ] + select({
++        "//cpp/src/arrow:avx2_enabled": ["level_comparison_avx2.cc"],
++        "//conditions:default": [],
++    }),
 +    hdrs = glob(
 +        [
 +            "*.h",
