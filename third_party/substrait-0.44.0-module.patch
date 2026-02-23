@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/BUILD.bazel
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,141 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +proto_library(
@@ -12,6 +12,11 @@
 +    ],
 +)
 +
++cc_proto_library(
++    name = "type_cc_proto",
++    deps = [":type_proto"],
++)
++
 +proto_library(
 +    name = "parameterized_types_proto",
 +    srcs = ["proto/substrait/parameterized_types.proto"],
@@ -19,6 +24,11 @@
 +    deps = [
 +        ":type_proto",
 +    ],
++)
++
++cc_proto_library(
++    name = "parameterized_types_cc_proto",
++    deps = [":parameterized_types_proto"],
 +)
 +
 +proto_library(
@@ -30,6 +40,11 @@
 +    ],
 +)
 +
++cc_proto_library(
++    name = "type_expressions_cc_proto",
++    deps = [":type_expressions_proto"],
++)
++
 +proto_library(
 +    name = "extensions_proto",
 +    srcs = ["proto/substrait/extensions/extensions.proto"],
@@ -37,6 +52,11 @@
 +    deps = [
 +        "@protobuf//:any_proto",
 +    ],
++)
++
++cc_proto_library(
++    name = "extensions_cc_proto",
++    deps = [":extensions_proto"],
 +)
 +
 +proto_library(
@@ -50,6 +70,11 @@
 +    ],
 +)
 +
++cc_proto_library(
++    name = "algebra_cc_proto",
++    deps = [":algebra_proto"],
++)
++
 +proto_library(
 +    name = "plan_proto",
 +    srcs = ["proto/substrait/plan.proto"],
@@ -60,10 +85,20 @@
 +    ],
 +)
 +
++cc_proto_library(
++    name = "plan_cc_proto",
++    deps = [":plan_proto"],
++)
++
 +proto_library(
 +    name = "capabilities_proto",
 +    srcs = ["proto/substrait/capabilities.proto"],
 +    strip_import_prefix = "proto",
++)
++
++cc_proto_library(
++    name = "capabilities_cc_proto",
++    deps = [":capabilities_proto"],
 +)
 +
 +proto_library(
@@ -78,6 +113,11 @@
 +    ],
 +)
 +
++cc_proto_library(
++    name = "extended_expression_cc_proto",
++    deps = [":extended_expression_proto"],
++)
++
 +proto_library(
 +    name = "function_proto",
 +    srcs = ["proto/substrait/function.proto"],
@@ -88,13 +128,18 @@
 +        ":type_proto",
 +    ],
 +)
++
++cc_proto_library(
++    name = "function_cc_proto",
++    deps = [":function_proto"],
++)
 
 --- /dev/null
 +++ b/MODULE.bazel
 @@ -0,0 +1,6 @@
 +module(
 +    name = "substrait",
-+    version = "0.74.1",
++    version = "0.44.0",
 +)
 +
 +bazel_dep(name = "protobuf", version = "32.0")

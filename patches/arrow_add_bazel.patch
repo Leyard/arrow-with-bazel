@@ -1,14 +1,33 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+new file mode 100644
+index 0000000000..0000000000
+--- /dev/null
++++ b/BUILD.bazel
+@@ -0,0 +1,12 @@
++package(default_visibility = ["//visibility:public"])
++
++alias(name = "arrow", actual = "//cpp/src/arrow:core")
++alias(name = "parquet", actual = "//cpp/src/parquet:parquet")
++alias(name = "acero", actual = "//cpp/src/arrow/acero:acero")
++alias(name = "csv", actual = "//cpp/src/arrow/csv:csv")
++alias(name = "dataset", actual = "//cpp/src/arrow/dataset:dataset")
++alias(name = "filesystem", actual = "//cpp/src/arrow/filesystem:filesystem")
++alias(name = "flight", actual = "//cpp/src/arrow/flight:flight")
++alias(name = "flight_sql", actual = "//cpp/src/arrow/flight/sql:flight_sql")
++alias(name = "ipc", actual = "//cpp/src/arrow/ipc:ipc")
++alias(name = "engine", actual = "//cpp/src/arrow/engine:engine")
 diff --git a/MODULE.bazel b/MODULE.bazel
 new file mode 100644
-index 0000000000..61e77ff109
+index 0000000000..0000000000
 --- /dev/null
 +++ b/MODULE.bazel
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,67 @@
 +module(
 +    name = "arrow",
 +    version = "21.0.0",
 +)
 +
++bazel_dep(name = "bazel_skylib", version = "1.7.1")
 +bazel_dep(name = "boost.multiprecision", version = "1.88.0.bcr.1")
 +bazel_dep(name = "rapidjson", version = "1.1.0.bcr.20241007")
 +bazel_dep(name = "thrift", version = "0.22.0")
@@ -41,26 +60,8 @@ index 0000000000..61e77ff109
 +# Pin a newer version to avoid some bugs
 +bazel_dep(name = "grpc", version = "1.74.1")
 +
-+# bazel_dep(name = "opentelemetry-proto", version = "1.8.0")  # optional if using versioned release
-+# archive_override(
-+#     module_name = "opentelemetry-proto",
-+#     url = "https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.8.0.tar.gz",
-+#     strip_prefix = "opentelemetry-proto-1.8.0",
-+#     sha256 = "057812cab50122c0fd504aae57b0b58424a5ec05d1b07889814bdfc7699abbe7",
-+#     patches = ["@//:third_party/opentelemetry-proto-1.8.0-module.patch"],
-+#     patch_args = ["-p1"],
-+# )
 +bazel_dep(name = "lz4", version = "1.10.0.bcr.1")
 +
-+# bazel_dep(name = "substrait", version = "0.74.1")
-+# archive_override(
-+#     module_name = "substrait",
-+#     url = "https://github.com/substrait-io/substrait/archive/refs/tags/v0.74.1.tar.gz",
-+#     strip_prefix = "substrait-0.74.1",
-+#     sha256 = "39896ed45484e3a46ccd16b77360a4b1c5d9e090d15d66849d5da64ddb0f74c7",
-+#     patches = ["@//:third_party/substrait-0.74.1-module.patch"],
-+#     patch_args = ["-p1"],
-+# )
 +bazel_dep(name = "substrait", version = "0.44.0")
 +archive_override(
 +    module_name = "substrait",
@@ -90,45 +91,78 @@ index 0000000000..61e77ff109
 +bazel_dep(name = "zstd", version = "1.5.7")
 diff --git a/cpp/src/arrow/BUILD.bazel b/cpp/src/arrow/BUILD.bazel
 new file mode 100644
-index 0000000000..e3302eaf1c
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/BUILD.bazel
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,180 @@
 +package(default_visibility = ["//visibility:public"])
++
++load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
++
++bool_flag(
++    name = "simd_avx512",
++    build_setting_default = False,
++)
++
++config_setting(
++    name = "avx512_enabled",
++    flag_values = {":simd_avx512": "True"},
++)
++
++ARROW_SIMD_COPTS = select({
++    "@platforms//cpu:x86_64": [
++        "-DARROW_HAVE_RUNTIME_AVX2",
++        "-mavx2",
++        "-DARROW_HAVE_RUNTIME_BMI2",
++        "-mbmi2",
++    ],
++    "//conditions:default": [],
++})
++
++ARROW_AVX512_COPTS = select({
++    ":avx512_enabled": [
++        "-DARROW_HAVE_RUNTIME_AVX512",
++        "-mavx512f",
++        "-mavx512cd",
++        "-mavx512bw",
++        "-mavx512dq",
++        "-mavx512vl",
++    ],
++    "//conditions:default": [],
++})
 +
 +# Generate the header file, util/config.h
 +genrule(
 +    name = "util_config_h",
 +    srcs = ["util/config.h.cmake"],
 +    outs = ["util/config.h"],
-+    cmd = """
-+        # Start with the source file
-+        cat $(location util/config.h.cmake) > $@
-+
-+        # Perform @VAR@ substitutions
-+        sed \
-+            -e 's/@ARROW_VERSION_MAJOR@/21/g' \
-+            -e 's/@ARROW_VERSION_MINOR@/0/g' \
-+            -e 's/@ARROW_VERSION_PATCH@/0/g' \
-+            -e 's/@ARROW_VERSION@/21.0.0/g' \
-+            -e 's/@ARROW_SO_VERSION@/2100/g' \
-+            -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
-+            -e 's/@ARROW_CXX_COMPILER_ID@/GNU/g' \
-+            -e 's/@ARROW_CXX_COMPILER_VERSION@/13.3.0/g' \
-+            -e 's/@CMAKE_CXX_FLAGS@/-O2/g' \
-+            -e 's/@UPPERCASE_BUILD_TYPE@/RELEASE/g' \
-+            -e 's/@ARROW_PACKAGE_KIND@/dev/g' \
-+            $< >$@
-+
-+        # Perform #cmakedefine substitutions
-+        # Use native int128 instead of boost::multi_precision
-+        sed -i'' -e 's/#cmakedefine ARROW_USE_NATIVE_INT128/#define ARROW_USE_NATIVE_INT128/g' $@
-+        sed -i'' -e 's/#cmakedefine ARROW_WITH_OPENTELEMETRY/#define ARROW_WITH_OPENTELEMETRY/g' $@
-+        # Use jemalloc but not vendored
-+        sed -i'' -e 's/#cmakedefine ARROW_JEMALLOC_VENDORED/#undef ARROW_JEMALLOC_VENDORED/g' $@
-+        sed -i'' -e 's/#cmakedefine ARROW_JEMALLOC/#define ARROW_JEMALLOC/g' $@
-+        sed -i'' -e 's/#cmakedefine/#undef/g' $@
-+    """,
++    cmd = """sed \
++        -e 's/@ARROW_VERSION_MAJOR@/21/g' \
++        -e 's/@ARROW_VERSION_MINOR@/0/g' \
++        -e 's/@ARROW_VERSION_PATCH@/0/g' \
++        -e 's/@ARROW_VERSION@/21.0.0/g' \
++        -e 's/@ARROW_SO_VERSION@/2100/g' \
++        -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
++        -e 's/@ARROW_CXX_COMPILER_ID@/Bazel/g' \
++        -e 's/@ARROW_CXX_COMPILER_VERSION@/Unknown/g' \
++        -e 's/@CMAKE_CXX_FLAGS@/-O2/g' \
++        -e 's/@UPPERCASE_BUILD_TYPE@/RELEASE/g' \
++        -e 's/@ARROW_PACKAGE_KIND@/dev/g' \
++        -e 's/#cmakedefine ARROW_USE_NATIVE_INT128/#define ARROW_USE_NATIVE_INT128/g' \
++        -e 's/#cmakedefine ARROW_WITH_OPENTELEMETRY/#define ARROW_WITH_OPENTELEMETRY/g' \
++        -e 's/#cmakedefine ARROW_JEMALLOC_VENDORED/#undef ARROW_JEMALLOC_VENDORED/g' \
++        -e 's/#cmakedefine ARROW_JEMALLOC/#define ARROW_JEMALLOC/g' \
++        -e 's/#cmakedefine ARROW_WITH_BROTLI/#define ARROW_WITH_BROTLI/g' \
++        -e 's/#cmakedefine ARROW_WITH_BZ2/#define ARROW_WITH_BZ2/g' \
++        -e 's/#cmakedefine ARROW_WITH_LZ4/#define ARROW_WITH_LZ4/g' \
++        -e 's/#cmakedefine ARROW_WITH_SNAPPY/#define ARROW_WITH_SNAPPY/g' \
++        -e 's/#cmakedefine ARROW_WITH_ZLIB/#define ARROW_WITH_ZLIB/g' \
++        -e 's/#cmakedefine ARROW_WITH_ZSTD/#define ARROW_WITH_ZSTD/g' \
++        -e 's/#cmakedefine ARROW_WITH_RE2/#define ARROW_WITH_RE2/g' \
++        -e 's/#cmakedefine ARROW_FLIGHT_SQL/#define ARROW_FLIGHT_SQL/g' \
++        -e 's/#cmakedefine ARROW_SUBSTRAIT/#define ARROW_SUBSTRAIT/g' \
++        -e 's/#cmakedefine/#undef/g' \
++        $< > $@""",
 +)
 +
 +# Generate the header file, util/config_internal.h
@@ -136,16 +170,10 @@ index 0000000000..e3302eaf1c
 +    name = "util_config_internal_h",
 +    srcs = ["util/config_internal.h.cmake"],
 +    outs = ["util/config_internal.h"],
-+    cmd = """
-+        # Start with the source file
-+        cat $(location util/config_internal.h.cmake) > $@
-+
-+        # Perform @VAR@ substitutions
-+        sed \
-+            -e 's/@ARROW_GIT_ID@/ee4d09ebef/g' \
-+            -e 's/@ARROW_GIT_DESCRIPTION@/apache-arrow-21.0.0-rc6/g' \
-+            $< >$@
-+    """,
++    cmd = """sed \
++        -e 's/@ARROW_GIT_ID@/ee4d09ebef/g' \
++        -e 's/@ARROW_GIT_DESCRIPTION@/apache-arrow-21.0.0-rc6/g' \
++        $< > $@""",
 +)
 +
 +cc_library(
@@ -164,20 +192,29 @@ index 0000000000..e3302eaf1c
 +            "util/*.cc",
 +            "vendored/**/*.cpp",
 +            "vendored/**/*.cc",
-+            # "testing/*.cc",
 +        ],
 +        exclude = [
 +            "**/*_test.cc",
 +            "**/test_*.cc",
 +            "util/*_test.cc",
-+            # "util/*simd*.cc",
-+            "**/*avx*.cc", "**/*512*.cc",
++            "**/*avx2*.cc",
++            "**/*avx512*.cc",
++            "**/*512*.cc",
 +            "**/*_benchmark.cc",
 +            "**/benchmark_*.cc",
 +            "io/hdfs*.cc",
 +            "vendored/datetime/tz.cpp",
 +        ],
-+    ),  #  + ["compute/test_util_internal.cc"],
++    ) + select({
++        "@platforms//cpu:x86_64": glob(["**/*avx2*.cc"]),
++        "//conditions:default": [],
++    }) + select({
++        ":avx512_enabled": glob(
++            ["**/*avx512*.cc", "**/*512*.cc"],
++            exclude = ["**/*avx2*.cc"],
++        ),
++        "//conditions:default": [],
++    }),
 +    hdrs = glob(
 +        [
 +            "*.h",
@@ -193,36 +230,37 @@ index 0000000000..e3302eaf1c
 +            "util/*.h",
 +            "vendored/**/*.h",
 +            "vendored/**/*.hpp",
-+            "vendored/datetime/tz.cpp",  # being included like a header file
-+            # "testing/*.h",
++            "vendored/datetime/tz.cpp",
 +        ],
 +        exclude = [
 +            "**/*_test.h",
 +            "**/test_*.h",
-+            # "util/*simd*.h",
-+            "**/*avx*.h", "**/*512*.h",
++            "**/*avx2*.h",
++            "**/*avx512*.h",
++            "**/*512*.h",
 +            "io/hdfs*.h",
 +        ],
-+    ) + [
++    ) + select({
++        "@platforms//cpu:x86_64": glob(["**/*avx2*.h"]),
++        "//conditions:default": [],
++    }) + select({
++        ":avx512_enabled": glob(
++            ["**/*avx512*.h", "**/*512*.h"],
++            exclude = ["**/*avx2*.h"],
++        ),
++        "//conditions:default": [],
++    }) + [
 +        ":util_config_h",
 +        ":util_config_internal_h",
-+    ],  #  + ["compute/test_util_internal.h"],
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
 +    ],
++    copts = ARROW_SIMD_COPTS + ARROW_AVX512_COPTS,
 +    include_prefix = "arrow",
 +    strip_include_prefix = "",
 +    deps = [
++        "@brotli",
++        "@bzip2",
 +        "@jemalloc",
++        "@lz4//:lz4_frame",
 +        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
 +        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
 +        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
@@ -230,101 +268,19 @@ index 0000000000..e3302eaf1c
 +        "@opentelemetry-proto//:trace_service_proto_cc",
 +        "@protobuf",
 +        "@rapidjson",
-+        "@snappy", "@brotli", "@bzip2", "@zlib", "@zstd",
-+        "@xsimd", "@lz4//:lz4_frame",
-+    ],
-+)
-+
-+cc_library(
-+    name = "base",
-+    srcs = glob(
-+        [
-+            "*.cc",
-+            # "array/*.cc",
-+            # "c/*.cc",
-+            # "compute/**/*.cc",
-+            # "extension/*.cc",
-+            # "io/*.cc",
-+            # "json/*.cc",
-+            # "telemetry/*.cc",
-+            # "tensor/*.cc",
-+            # "util/*.cc",
-+            # "vendored/**/*.cpp",
-+            # "vendored/**/*.cc",
-+        ],
-+        exclude = [
-+            "**/*_test.cc",
-+            "**/test_*.cc",
-+            # "util/*_test.cc",
-+            # "util/*simd512*.cc",
-+            # "util/*avx512*.cc",
-+            # "**/*_benchmark.cc",
-+            # "**/benchmark_*.cc",
-+            # "io/hdfs*.cc",
-+            # "vendored/datetime/tz.cpp",
-+        ],
-+    ),
-+    hdrs = glob(
-+        [
-+            "*.h",
-+            # "array/*.h",
-+            # "c/*.h",
-+            # "compute/**/*.h",
-+            # "compute/kernels/*.inc.cc",
-+            # "extension/*.h",
-+            # "io/*.h",
-+            # "json/*.h",
-+            # "telemetry/*.h",
-+            # "tensor/*.h",
-+            # "util/*.h",
-+            # "vendored/**/*.h",
-+            # "vendored/**/*.hpp",
-+            # "vendored/datetime/tz.cpp", # being included like a header file
-+        ],
-+        exclude = [
-+            "**/*_test.h",
-+            "**/test_*.h",
-+            # "util/*simd512*.h",
-+            # "util/*avx512*.h",
-+            # "io/hdfs*.h",
-+        ],
-+    ) + [
-+        ":util_config_h",
-+        ":util_config_internal_h",
-+    ],
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
-+    ],
-+    include_prefix = "arrow",
-+    strip_include_prefix = "",
-+    deps = [
-+        "@jemalloc",
-+        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
-+        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
-+        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
-+        "@opentelemetry-cpp//exporters/otlp:otlp_http_log_record_exporter",
-+        "@opentelemetry-proto//:trace_service_proto_cc",
-+        "@protobuf",
-+        "@rapidjson",
++        "@re2",
 +        "@snappy",
 +        "@xsimd",
++        "@zlib",
++        "@zstd",
 +    ],
 +)
 diff --git a/cpp/src/arrow/acero/BUILD.bazel b/cpp/src/arrow/acero/BUILD.bazel
 new file mode 100644
-index 0000000000..48186e1f89
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/acero/BUILD.bazel
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,47 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -354,20 +310,17 @@ index 0000000000..48186e1f89
 +            "benchmark_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//cpu:x86_64": [
++            "-DARROW_HAVE_RUNTIME_AVX2",
++            "-mavx2",
++            "-DARROW_HAVE_RUNTIME_BMI2",
++            "-mbmi2",
++        ],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/acero",
 +    strip_include_prefix = "",
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
-+    ],
 +    deps = [
 +        "//cpp/src/arrow:core",
 +        "//cpp/src/arrow/ipc:ipc",
@@ -377,10 +330,10 @@ index 0000000000..48186e1f89
 +)
 diff --git a/cpp/src/arrow/csv/BUILD.bazel b/cpp/src/arrow/csv/BUILD.bazel
 new file mode 100644
-index 0000000000..6b8a630fcb
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/csv/BUILD.bazel
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,29 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -408,17 +361,14 @@ index 0000000000..6b8a630fcb
 +    deps = [
 +        "//cpp/src/arrow:core",
 +        "//cpp/src/arrow/ipc:ipc",
-+        # "//cpp/src/generated:generated",
-+        # "@com_github_google_flatbuffers//:flatbuffers",
-+        # ":feather_fbs",
 +    ],
 +)
 diff --git a/cpp/src/arrow/dataset/BUILD.bazel b/cpp/src/arrow/dataset/BUILD.bazel
 new file mode 100644
-index 0000000000..03673a1469
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/dataset/BUILD.bazel
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,46 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -443,33 +393,80 @@ index 0000000000..03673a1469
 +            "benchmark_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//cpu:x86_64": [
++            "-DARROW_HAVE_RUNTIME_AVX2",
++            "-mavx2",
++            "-DARROW_HAVE_RUNTIME_BMI2",
++            "-mbmi2",
++        ],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/dataset",
 +    strip_include_prefix = "",
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
-+    ],
 +    deps = [
 +        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/acero:acero",
++        "//cpp/src/arrow/csv:csv",
++        "//cpp/src/arrow/filesystem:filesystem",
 +        "//cpp/src/arrow/ipc:ipc",
 +        "//cpp/src/generated:generated",
++        "//cpp/src/parquet:parquet",
 +        "@com_github_google_flatbuffers//:flatbuffers",
++    ],
++)
+diff --git a/cpp/src/arrow/engine/BUILD.bazel b/cpp/src/arrow/engine/BUILD.bazel
+new file mode 100644
+index 0000000000..0000000000
+--- /dev/null
++++ b/cpp/src/arrow/engine/BUILD.bazel
+@@ -0,0 +1,40 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "engine",
++    srcs = glob(
++        [
++            "substrait/*.cc",
++        ],
++        exclude = [
++            "**/*_test.cc",
++            "**/test_*.cc",
++            "**/*_benchmark.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++            "substrait/*.h",
++        ],
++        exclude = [
++            "**/*_test.h",
++            "**/test_*.h",
++        ],
++    ),
++    include_prefix = "arrow/engine",
++    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/acero:acero",
++        "//cpp/src/arrow/dataset:dataset",
++        "//format:substrait_pb",
++        "@protobuf",
++        "@substrait//:algebra_cc_proto",
++        "@substrait//:extended_expression_cc_proto",
++        "@substrait//:extensions_cc_proto",
++        "@substrait//:function_cc_proto",
++        "@substrait//:plan_cc_proto",
++        "@substrait//:type_cc_proto",
 +    ],
 +)
 diff --git a/cpp/src/arrow/filesystem/BUILD.bazel b/cpp/src/arrow/filesystem/BUILD.bazel
 new file mode 100644
-index 0000000000..b23a4dc587
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/filesystem/BUILD.bazel
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,43 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -504,39 +501,22 @@ index 0000000000..b23a4dc587
 +            "s3*.h",
 +        ],
 +    ),
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
-+    ],
 +    include_prefix = "arrow/filesystem",
 +    strip_include_prefix = "",
 +    deps = [
 +        "//cpp/src/arrow:core",
-+        "//cpp/src/arrow/ipc",
-+        "//cpp/src/generated",
++        "//cpp/src/arrow/ipc:ipc",
++        "//cpp/src/generated:generated",
 +        "@com_github_google_flatbuffers//:flatbuffers",
 +    ],
 +)
 diff --git a/cpp/src/arrow/flight/BUILD.bazel b/cpp/src/arrow/flight/BUILD.bazel
 new file mode 100644
-index 0000000000..93d4c1a269
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/flight/BUILD.bazel
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,37 @@
 +package(default_visibility = ["//visibility:public"])
-+
-+cc_library(
-+    name = "flight_grpc_srcs",
-+    textual_hdrs = ["//format:flight_grpc_pb_srcs"],  # ← This is critical!
-+)
 +
 +cc_library(
 +    name = "flight",
@@ -563,49 +543,61 @@ index 0000000000..93d4c1a269
 +            "**/test_*.h",
 +        ],
 +    ),
-+    # copts = [
-+    #     "-DARROW_HAVE_RUNTIME_BMI2",
-+    #     "-mbmi2",
-+    #     "-DARROW_HAVE_RUNTIME_AVX2",
-+    #     "-mavx2",
-+    #     "-DARROW_HAVE_RUNTIME_AVX512",
-+    #     "-mavx512f",
-+    #     "-mavx512cd",
-+    #     "-mavx512bw",
-+    #     "-mavx512dq",
-+    #     "-mavx512vl",
-+    # ],
 +    include_prefix = "arrow/flight",
 +    strip_include_prefix = "",
 +    deps = [
 +        "//cpp/src/arrow:core",
 +        "//cpp/src/arrow/ipc:ipc",
-+        # "//format:flight_cc_proto",
 +        "//format:flight_grpc",
-+        ":flight_grpc_srcs",
 +        "@grpc//:grpc++",
 +        "@opentelemetry-cpp//api:api",
 +    ],
-+       # includes = ["."],
-+    # textual_hdrs = [":flight_grpc"],
++)
+diff --git a/cpp/src/arrow/flight/sql/BUILD.bazel b/cpp/src/arrow/flight/sql/BUILD.bazel
+new file mode 100644
+index 0000000000..0000000000
+--- /dev/null
++++ b/cpp/src/arrow/flight/sql/BUILD.bazel
+@@ -0,0 +1,32 @@
++package(default_visibility = ["//visibility:public"])
++
++cc_library(
++    name = "flight_sql",
++    srcs = glob(
++        [
++            "*.cc",
++        ],
++        exclude = [
++            "*_test.cc",
++            "test_*.cc",
++            "*_benchmark.cc",
++        ],
++    ),
++    hdrs = glob(
++        [
++            "*.h",
++        ],
++        exclude = [
++            "*_test.h",
++            "test_*.h",
++        ],
++    ),
++    include_prefix = "arrow/flight/sql",
++    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/flight:flight",
++        "//cpp/src/arrow/ipc:ipc",
++        "//format:flight_sql_cc_proto",
++    ],
 +)
 diff --git a/cpp/src/arrow/ipc/BUILD.bazel b/cpp/src/arrow/ipc/BUILD.bazel
 new file mode 100644
-index 0000000000..3ce3f939d8
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/ipc/BUILD.bazel
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,47 @@
 +package(default_visibility = ["//visibility:public"])
-+
-+
-+# flatbuffer_cc_library(
-+#     name = "ipc_message_fbs",
-+#     srcs = ["feather.fbs"],
-+#     outs = ["Message_generated.h"],
-+#     include_prefix = "arrow/ipc",
-+#     flatc_args = ["--gen-mutable", "--gen-object-api"],
-+# )
-+
 +
 +load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
 +
@@ -616,16 +608,6 @@ index 0000000000..3ce3f939d8
 +    ],
 +    out_prefix = "generated/",
 +    cc_include_paths = ["."],
-+)
-+
-+
-+genrule(
-+    name = "feather_fbs_gen",
-+    srcs = ["feather.fbs"],
-+    outs = ["Message_generated.h"],
-+    tools = ["@flatbuffers//:flatc"],
-+    cmd = "$(location @flatbuffers//:flatc) --cpp --gen-mutable --scoped-enums -o $(@D) $(location feather.fbs)",
-+    visibility = ["//visibility:public"],
 +)
 +
 +cc_library(
@@ -655,10 +637,8 @@ index 0000000000..3ce3f939d8
 +    ),
 +    include_prefix = "arrow/ipc",
 +    strip_include_prefix = "",
-+    visibility = ["//visibility:public"],
 +    deps = [
 +        "//cpp/src/arrow:core",
-+        # "//format:fbs",
 +        "//cpp/src/generated:generated",
 +        "@com_github_google_flatbuffers//:flatbuffers",
 +        ":feather_fbs",
@@ -666,59 +646,60 @@ index 0000000000..3ce3f939d8
 +)
 diff --git a/cpp/src/generated/BUILD.bazel b/cpp/src/generated/BUILD.bazel
 new file mode 100644
-index 0000000000..f10052e0b2
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/generated/BUILD.bazel
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,18 @@
 +package(default_visibility = ["//visibility:public"])
-+
 +
 +cc_library(
 +    name = "generated",
 +    srcs = glob(["parquet_types.cpp"]),
-+    hdrs = glob(["*_generated.h", "parquet_types.h", "parquet_types.tcc"]),
-+    deps = ["@thrift", "//cpp/src/arrow:core", "//cpp/src/parquet:windows_h"],
++    hdrs = glob([
++        "*_generated.h",
++        "parquet_types.h",
++        "parquet_types.tcc",
++    ]),
 +    include_prefix = "generated",
 +    strip_include_prefix = "",
++    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/parquet:parquet_windows_h",
++        "@thrift",
++    ],
 +)
 diff --git a/cpp/src/parquet/BUILD.bazel b/cpp/src/parquet/BUILD.bazel
 new file mode 100644
-index 0000000000..936dd2a9bb
+index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/parquet/BUILD.bazel
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,94 @@
 +package(default_visibility = ["//visibility:public"])
-+
 +
 +# Generate the header file, parquet_version.h
 +genrule(
 +    name = "parquet_version_h",
 +    srcs = ["parquet_version.h.in"],
 +    outs = ["parquet_version.h"],
-+    cmd = """
-+        # Start with the source file
-+        cat $(location parquet_version.h.in) > $@
-+
-+        # Perform @VAR@ substitutions
-+        sed -i'' \
-+            -e 's/@ARROW_VERSION_MAJOR@/21/g' \
-+            -e 's/@ARROW_VERSION_MINOR@/0/g' \
-+            -e 's/@ARROW_VERSION_PATCH@/0/g' \
-+            -e 's/@ARROW_SO_VERSION@/2100/g' \
-+            -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
-+            -e 's/@ARROW_VERSION@/21.0.0/g' \
-+            $@
-+    """,
++    cmd = """sed \
++        -e 's/@ARROW_VERSION_MAJOR@/21/g' \
++        -e 's/@ARROW_VERSION_MINOR@/0/g' \
++        -e 's/@ARROW_VERSION_PATCH@/0/g' \
++        -e 's/@ARROW_SO_VERSION@/2100/g' \
++        -e 's/@ARROW_FULL_SO_VERSION@/2100.0.0/g' \
++        -e 's/@ARROW_VERSION@/21.0.0/g' \
++        $< > $@""",
 +)
 +
 +cc_library(
-+    name = "windows_h",
-+    hdrs = ["windows_compatibility.h", "windows_fixup.h"],
++    name = "parquet_windows_h",
++    hdrs = [
++        "windows_compatibility.h",
++        "windows_fixup.h",
++    ],
 +    include_prefix = "parquet",
 +    strip_include_prefix = "",
 +)
-+
-+
 +
 +cc_library(
 +    name = "parquet",
@@ -757,41 +738,39 @@ index 0000000000..936dd2a9bb
 +            "io/hdfs*.h",
 +        ],
 +    ) + [":parquet_version_h"],
-+    copts = [
-+        # "-DARROW_HAVE_RUNTIME_BMI2",
-+        # "-mbmi2",
-+        # "-DARROW_HAVE_RUNTIME_AVX2",
-+        # "-mavx2",
-+        # "-DARROW_HAVE_RUNTIME_AVX512",
-+        # "-mavx512f",
-+        # "-mavx512cd",
-+        # "-mavx512bw",
-+        # "-mavx512dq",
-+        # "-mavx512vl",
-+    ],
++    copts = select({
++        "@platforms//cpu:x86_64": [
++            "-DARROW_HAVE_RUNTIME_AVX2",
++            "-mavx2",
++            "-DARROW_HAVE_RUNTIME_BMI2",
++            "-mbmi2",
++        ],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "parquet",
 +    strip_include_prefix = "",
 +    deps = [
++        "//cpp/src/arrow:core",
++        "//cpp/src/arrow/filesystem:filesystem",
++        "//cpp/src/arrow/ipc:ipc",
++        "//cpp/src/generated:generated",
 +        "@jemalloc",
-+        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
 +        "@opentelemetry-cpp//exporters/ostream:ostream_log_record_exporter",
++        "@opentelemetry-cpp//exporters/ostream:ostream_span_exporter",
 +        "@opentelemetry-cpp//exporters/otlp:otlp_http_exporter",
 +        "@opentelemetry-cpp//exporters/otlp:otlp_http_log_record_exporter",
 +        "@opentelemetry-proto//:trace_service_proto_cc",
 +        "@protobuf",
 +        "@rapidjson",
++        "@re2",
 +        "@snappy",
-+        "@xsimd",
 +        "@thrift",
-+        "//cpp/src/arrow:core",
-+        "//cpp/src/arrow/ipc:ipc",
-+        "//cpp/src/arrow/filesystem:filesystem",
-+        "//cpp/src/generated:generated",
++        "@xsimd",
 +    ],
 +)
 diff --git a/format/BUILD.bazel b/format/BUILD.bazel
 new file mode 100644
-index 0000000000..ae18fa70ee
+index 0000000000..0000000000
 --- /dev/null
 +++ b/format/BUILD.bazel
 @@ -0,0 +1,79 @@
@@ -879,7 +858,7 @@ new file mode 100644
 index 0000000000..e69de29bb2
 diff --git a/third_party/flatbuffers-24.3.6-module.patch b/third_party/flatbuffers-24.3.6-module.patch
 new file mode 100644
-index 0000000000..4190540d19
+index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/flatbuffers-24.3.6-module.patch
 @@ -0,0 +1,234 @@
@@ -1119,13 +1098,13 @@ index 0000000000..4190540d19
 +-)
 diff --git a/third_party/substrait-0.44.0-module.patch b/third_party/substrait-0.44.0-module.patch
 new file mode 100644
-index 0000000000..815e8d0ced
+index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/substrait-0.44.0-module.patch
-@@ -0,0 +1,100 @@
+@@ -0,0 +1,145 @@
 +--- /dev/null
 ++++ b/BUILD.bazel
-+@@ -0,0 +1,87 @@
++@@ -0,0 +1,141 @@
 ++package(default_visibility = ["//visibility:public"])
 ++
 ++proto_library(
@@ -1137,6 +1116,11 @@ index 0000000000..815e8d0ced
 ++    ],
 ++)
 ++
+++cc_proto_library(
+++    name = "type_cc_proto",
+++    deps = [":type_proto"],
+++)
+++
 ++proto_library(
 ++    name = "parameterized_types_proto",
 ++    srcs = ["proto/substrait/parameterized_types.proto"],
@@ -1144,6 +1128,11 @@ index 0000000000..815e8d0ced
 ++    deps = [
 ++        ":type_proto",
 ++    ],
+++)
+++
+++cc_proto_library(
+++    name = "parameterized_types_cc_proto",
+++    deps = [":parameterized_types_proto"],
 ++)
 ++
 ++proto_library(
@@ -1155,6 +1144,11 @@ index 0000000000..815e8d0ced
 ++    ],
 ++)
 ++
+++cc_proto_library(
+++    name = "type_expressions_cc_proto",
+++    deps = [":type_expressions_proto"],
+++)
+++
 ++proto_library(
 ++    name = "extensions_proto",
 ++    srcs = ["proto/substrait/extensions/extensions.proto"],
@@ -1162,6 +1156,11 @@ index 0000000000..815e8d0ced
 ++    deps = [
 ++        "@protobuf//:any_proto",
 ++    ],
+++)
+++
+++cc_proto_library(
+++    name = "extensions_cc_proto",
+++    deps = [":extensions_proto"],
 ++)
 ++
 ++proto_library(
@@ -1175,6 +1174,11 @@ index 0000000000..815e8d0ced
 ++    ],
 ++)
 ++
+++cc_proto_library(
+++    name = "algebra_cc_proto",
+++    deps = [":algebra_proto"],
+++)
+++
 ++proto_library(
 ++    name = "plan_proto",
 ++    srcs = ["proto/substrait/plan.proto"],
@@ -1185,10 +1189,20 @@ index 0000000000..815e8d0ced
 ++    ],
 ++)
 ++
+++cc_proto_library(
+++    name = "plan_cc_proto",
+++    deps = [":plan_proto"],
+++)
+++
 ++proto_library(
 ++    name = "capabilities_proto",
 ++    srcs = ["proto/substrait/capabilities.proto"],
 ++    strip_import_prefix = "proto",
+++)
+++
+++cc_proto_library(
+++    name = "capabilities_cc_proto",
+++    deps = [":capabilities_proto"],
 ++)
 ++
 ++proto_library(
@@ -1203,6 +1217,11 @@ index 0000000000..815e8d0ced
 ++    ],
 ++)
 ++
+++cc_proto_library(
+++    name = "extended_expression_cc_proto",
+++    deps = [":extended_expression_proto"],
+++)
+++
 ++proto_library(
 ++    name = "function_proto",
 ++    srcs = ["proto/substrait/function.proto"],
@@ -1213,19 +1232,24 @@ index 0000000000..815e8d0ced
 ++        ":type_proto",
 ++    ],
 ++)
+++
+++cc_proto_library(
+++    name = "function_cc_proto",
+++    deps = [":function_proto"],
+++)
 +
 +--- /dev/null
 ++++ b/MODULE.bazel
 +@@ -0,0 +1,6 @@
 ++module(
 ++    name = "substrait",
-++    version = "0.74.1",
+++    version = "0.44.0",
 ++)
 ++
 ++bazel_dep(name = "protobuf", version = "32.0")
 diff --git a/third_party/thrift-0.22.0-module.patch b/third_party/thrift-0.22.0-module.patch
 new file mode 100644
-index 0000000000..b20775b313
+index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/thrift-0.22.0-module.patch
 @@ -0,0 +1,69 @@
@@ -1300,7 +1324,7 @@ index 0000000000..b20775b313
 ++)
 diff --git a/third_party/xsimd-13.2.0-module.patch b/third_party/xsimd-13.2.0-module.patch
 new file mode 100644
-index 0000000000..3057852976
+index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/xsimd-13.2.0-module.patch
 @@ -0,0 +1,42 @@

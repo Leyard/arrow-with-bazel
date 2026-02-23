@@ -5,7 +5,11 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -16,9 +20,36 @@ jobs:
             # Avoid downloading Bazel every time.
             bazelisk-cache: true
             # Store build cache per workflow.
-            disk-cache: ${{ github.workflow }}
+            disk-cache: ${{ github.workflow }}-${{ matrix.os }}
             # Share repository cache between workflows.
             repository-cache: true
 
-      - name: Build library
-        run: bazel build @arrow//cpp/src/arrow:core
+      - name: Build core
+        run: bazel build @arrow//:arrow
+
+      - name: Build parquet
+        run: bazel build @arrow//:parquet
+
+      - name: Build acero
+        run: bazel build @arrow//:acero
+
+      - name: Build csv
+        run: bazel build @arrow//:csv
+
+      - name: Build dataset
+        run: bazel build @arrow//:dataset
+
+      - name: Build filesystem
+        run: bazel build @arrow//:filesystem
+
+      - name: Build flight
+        run: bazel build @arrow//:flight
+
+      - name: Build flight_sql
+        run: bazel build @arrow//:flight_sql
+
+      - name: Build ipc
+        run: bazel build @arrow//:ipc
+
+      - name: Build engine
+        run: bazel build @arrow//:engine
