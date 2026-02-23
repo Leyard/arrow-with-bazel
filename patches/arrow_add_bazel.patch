@@ -95,10 +95,20 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/BUILD.bazel
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,195 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
++
++bool_flag(
++    name = "simd_avx2",
++    build_setting_default = False,
++)
++
++config_setting(
++    name = "avx2_enabled",
++    flag_values = {":simd_avx2": "True"},
++)
 +
 +bool_flag(
 +    name = "simd_avx512",
@@ -110,8 +120,8 @@ index 0000000000..0000000000
 +    flag_values = {":simd_avx512": "True"},
 +)
 +
-+ARROW_SIMD_COPTS = select({
-+    "@platforms//cpu:x86_64": [
++ARROW_AVX2_COPTS = select({
++    ":avx2_enabled": [
 +        "-DARROW_HAVE_RUNTIME_AVX2",
 +        "-mavx2",
 +        "-DARROW_HAVE_RUNTIME_BMI2",
@@ -212,7 +222,7 @@ index 0000000000..0000000000
 +            "vendored/datetime/tz.cpp",
 +        ],
 +    ) + select({
-+        "@platforms//cpu:x86_64": glob(["**/*avx2*.cc"]),
++        ":avx2_enabled": glob(["**/*avx2*.cc"]),
 +        "//conditions:default": [],
 +    }) + select({
 +        ":avx512_enabled": glob(
@@ -247,7 +257,7 @@ index 0000000000..0000000000
 +            "io/hdfs*.h",
 +        ],
 +    ) + select({
-+        "@platforms//cpu:x86_64": glob(["**/*avx2*.h"]),
++        ":avx2_enabled": glob(["**/*avx2*.h"]),
 +        "//conditions:default": [],
 +    }) + select({
 +        ":avx512_enabled": glob(
@@ -259,7 +269,7 @@ index 0000000000..0000000000
 +        ":util_config_h",
 +        ":util_config_internal_h",
 +    ],
-+    copts = ARROW_SIMD_COPTS + ARROW_AVX512_COPTS + ARROW_PLATFORM_COPTS,
++    copts = ARROW_AVX2_COPTS + ARROW_AVX512_COPTS + ARROW_PLATFORM_COPTS,
 +    include_prefix = "arrow",
 +    strip_include_prefix = "",
 +    deps = [
@@ -286,7 +296,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/acero/BUILD.bazel
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,53 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -300,13 +310,12 @@ index 0000000000..0000000000
 +            "*_test.cc",
 +            "benchmark_*.cc",
 +            "*_benchmark.cc",
-+            "generate_fuzz_corpus.cc",
-+            "generate_tensor_fuzz_corpus.cc",
-+            "*_fuzz.cc",
-+            "file_to_stream.cc",
-+            "stream_to_file.cc",
++            "*avx2*",
 +        ],
-+    ),
++    ) + select({
++        "//cpp/src/arrow:avx2_enabled": glob(["*avx2*.cc"]),
++        "//conditions:default": [],
++    }),
 +    hdrs = glob(
 +        [
 +            "*.h",
@@ -314,10 +323,14 @@ index 0000000000..0000000000
 +        exclude = [
 +            "test_*.h",
 +            "benchmark_*.h",
++            "*avx2*",
 +        ],
-+    ),
++    ) + select({
++        "//cpp/src/arrow:avx2_enabled": glob(["*avx2*.h"]),
++        "//conditions:default": [],
++    }),
 +    copts = select({
-+        "@platforms//cpu:x86_64": [
++        "//cpp/src/arrow:avx2_enabled": [
 +            "-DARROW_HAVE_RUNTIME_AVX2",
 +            "-mavx2",
 +            "-DARROW_HAVE_RUNTIME_BMI2",
@@ -409,7 +422,7 @@ index 0000000000..0000000000
 +        ],
 +    ),
 +    copts = select({
-+        "@platforms//cpu:x86_64": [
++        "//cpp/src/arrow:avx2_enabled": [
 +            "-DARROW_HAVE_RUNTIME_AVX2",
 +            "-mavx2",
 +            "-DARROW_HAVE_RUNTIME_BMI2",
@@ -777,7 +790,7 @@ index 0000000000..0000000000
 +        ],
 +    ) + [":parquet_version_h"],
 +    copts = select({
-+        "@platforms//cpu:x86_64": [
++        "//cpp/src/arrow:avx2_enabled": [
 +            "-DARROW_HAVE_RUNTIME_AVX2",
 +            "-mavx2",
 +            "-DARROW_HAVE_RUNTIME_BMI2",
