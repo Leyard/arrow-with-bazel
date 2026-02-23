@@ -381,7 +381,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/dataset/BUILD.bazel
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,51 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -395,6 +395,7 @@ index 0000000000..0000000000
 +            "*_test.cc",
 +            "benchmark_*.cc",
 +            "*_benchmark.cc",
++            "file_orc*",
 +        ],
 +    ),
 +    hdrs = glob(
@@ -404,6 +405,7 @@ index 0000000000..0000000000
 +        exclude = [
 +            "test_*.h",
 +            "benchmark_*.h",
++            "file_orc*",
 +        ],
 +    ),
 +    copts = select({
@@ -743,7 +745,6 @@ index 0000000000..0000000000
 +        [
 +            "*.cc",
 +            "arrow/*.cc",
-+            "encryption/*.cc",
 +            "geospatial/*.cc",
 +        ],
 +        exclude = [
@@ -755,9 +756,10 @@ index 0000000000..0000000000
 +            "util/*avx512*.cc",
 +            "**/*_benchmark.cc",
 +            "**/benchmark_*.cc",
-+            "encryption/encryption_internal_nossl.cc",
 +        ],
-+    ),
++    ) + [
++        "encryption/encryption_internal_nossl.cc",
++    ],
 +    hdrs = glob(
 +        [
 +            "*.h",
