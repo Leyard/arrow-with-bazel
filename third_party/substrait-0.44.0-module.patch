@@ -1,6 +1,8 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+new file mode 100644
 --- /dev/null
 +++ b/BUILD.bazel
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,132 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +proto_library(
@@ -133,7 +135,8 @@
 +    name = "function_cc_proto",
 +    deps = [":function_proto"],
 +)
-
+diff --git a/MODULE.bazel b/MODULE.bazel
+new file mode 100644
 --- /dev/null
 +++ b/MODULE.bazel
 @@ -0,0 +1,6 @@

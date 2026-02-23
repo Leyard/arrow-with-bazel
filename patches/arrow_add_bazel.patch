@@ -21,19 +21,20 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/MODULE.bazel
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,68 @@
 +module(
 +    name = "arrow",
 +    version = "21.0.0",
 +)
 +
++bazel_dep(name = "platforms", version = "0.0.10")
 +bazel_dep(name = "bazel_skylib", version = "1.7.1")
 +bazel_dep(name = "boost.multiprecision", version = "1.88.0.bcr.1")
 +bazel_dep(name = "rapidjson", version = "1.1.0.bcr.20241007")
 +bazel_dep(name = "thrift", version = "0.22.0")
 +archive_override(
 +    module_name = "thrift",
-+    patch_args = ["-p1", "-N"],
++    patch_args = ["-p1"],
 +    patches = ["@//:third_party/thrift-0.22.0-module.patch"],
 +    sha256 = "c4649c5879dd56c88f1e7a1c03e0fbfcc3b2a2872fb81616bffba5aa8a225a37",
 +    strip_prefix = "thrift-0.22.0",
@@ -45,7 +46,7 @@ index 0000000000..0000000000
 +bazel_dep(name = "xsimd", version = "13.2.0")
 +archive_override(
 +    module_name = "xsimd",
-+    patch_args = ["-p1", "-N"],
++    patch_args = ["-p1"],
 +    patches = ["@//:third_party/xsimd-13.2.0-module.patch"],
 +    sha256 = "edd8cd3d548c185adc70321c53c36df41abe64c1fe2c67bc6d93c3ecda82447a",
 +    strip_prefix = "xsimd-13.2.0",
@@ -65,7 +66,7 @@ index 0000000000..0000000000
 +bazel_dep(name = "substrait", version = "0.44.0")
 +archive_override(
 +    module_name = "substrait",
-+    patch_args = ["-p1", "-N"],
++    patch_args = ["-p1"],
 +    patches = ["@//:third_party/substrait-0.44.0-module.patch"],
 +    sha256 = "f989a862f694e7dbb695925ddb7c4ce06aa6c51aca945105c075139aed7e55a2",
 +    strip_prefix = "substrait-0.44.0",
@@ -94,7 +95,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/BUILD.bazel
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,185 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
@@ -128,6 +129,11 @@ index 0000000000..0000000000
 +        "-mavx512dq",
 +        "-mavx512vl",
 +    ],
++    "//conditions:default": [],
++})
++
++ARROW_PLATFORM_COPTS = select({
++    "@platforms//os:macos": ["-faligned-allocation"],
 +    "//conditions:default": [],
 +})
 +
@@ -253,7 +259,7 @@ index 0000000000..0000000000
 +        ":util_config_h",
 +        ":util_config_internal_h",
 +    ],
-+    copts = ARROW_SIMD_COPTS + ARROW_AVX512_COPTS,
++    copts = ARROW_SIMD_COPTS + ARROW_AVX512_COPTS + ARROW_PLATFORM_COPTS,
 +    include_prefix = "arrow",
 +    strip_include_prefix = "",
 +    deps = [
@@ -280,7 +286,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/acero/BUILD.bazel
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,50 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -318,6 +324,9 @@ index 0000000000..0000000000
 +            "-mbmi2",
 +        ],
 +        "//conditions:default": [],
++    }) + select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
 +    }),
 +    include_prefix = "arrow/acero",
 +    strip_include_prefix = "",
@@ -333,7 +342,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/csv/BUILD.bazel
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,33 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -356,6 +365,10 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/csv",
 +    strip_include_prefix = "",
 +    deps = [
@@ -368,7 +381,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/dataset/BUILD.bazel
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,49 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -401,6 +414,9 @@ index 0000000000..0000000000
 +            "-mbmi2",
 +        ],
 +        "//conditions:default": [],
++    }) + select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
 +    }),
 +    include_prefix = "arrow/dataset",
 +    strip_include_prefix = "",
@@ -420,7 +436,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/engine/BUILD.bazel
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,44 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -445,6 +461,10 @@ index 0000000000..0000000000
 +            "**/test_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/engine",
 +    strip_include_prefix = "",
 +    deps = [
@@ -466,7 +486,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/filesystem/BUILD.bazel
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,47 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -501,6 +521,10 @@ index 0000000000..0000000000
 +            "s3*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/filesystem",
 +    strip_include_prefix = "",
 +    deps = [
@@ -515,7 +539,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/flight/BUILD.bazel
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,41 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -543,6 +567,10 @@ index 0000000000..0000000000
 +            "**/test_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/flight",
 +    strip_include_prefix = "",
 +    deps = [
@@ -558,7 +586,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/flight/sql/BUILD.bazel
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,36 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +cc_library(
@@ -582,6 +610,10 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/flight/sql",
 +    strip_include_prefix = "",
 +    deps = [
@@ -596,7 +628,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/arrow/ipc/BUILD.bazel
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,51 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
@@ -635,6 +667,10 @@ index 0000000000..0000000000
 +            "test_*.h",
 +        ],
 +    ),
++    copts = select({
++        "@platforms//os:macos": ["-faligned-allocation"],
++        "//conditions:default": [],
++    }),
 +    include_prefix = "arrow/ipc",
 +    strip_include_prefix = "",
 +    deps = [
@@ -673,7 +709,7 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/cpp/src/parquet/BUILD.bazel
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,97 @@
 +package(default_visibility = ["//visibility:public"])
 +
 +# Generate the header file, parquet_version.h
@@ -745,6 +781,9 @@ index 0000000000..0000000000
 +            "-DARROW_HAVE_RUNTIME_BMI2",
 +            "-mbmi2",
 +        ],
++        "//conditions:default": [],
++    }) + select({
++        "@platforms//os:macos": ["-faligned-allocation"],
 +        "//conditions:default": [],
 +    }),
 +    include_prefix = "parquet",
@@ -855,7 +894,10 @@ index 0000000000..0000000000
 +)
 diff --git a/third_party/BUILD.bazel b/third_party/BUILD.bazel
 new file mode 100644
-index 0000000000..e69de29bb2
+--- /dev/null
++++ b/third_party/BUILD.bazel
+@@ -0,0 +1,1 @@
++# Placeholder for third_party patches
 diff --git a/third_party/flatbuffers-24.3.6-module.patch b/third_party/flatbuffers-24.3.6-module.patch
 new file mode 100644
 index 0000000000..0000000000
@@ -1101,10 +1143,12 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/substrait-0.44.0-module.patch
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,148 @@
++diff --git a/BUILD.bazel b/BUILD.bazel
++new file mode 100644
 +--- /dev/null
 ++++ b/BUILD.bazel
-+@@ -0,0 +1,141 @@
++@@ -0,0 +1,132 @@
 ++package(default_visibility = ["//visibility:public"])
 ++
 ++proto_library(
@@ -1237,7 +1281,8 @@ index 0000000000..0000000000
 ++    name = "function_cc_proto",
 ++    deps = [":function_proto"],
 ++)
-+
++diff --git a/MODULE.bazel b/MODULE.bazel
++new file mode 100644
 +--- /dev/null
 ++++ b/MODULE.bazel
 +@@ -0,0 +1,6 @@
@@ -1252,7 +1297,9 @@ new file mode 100644
 index 0000000000..0000000000
 --- /dev/null
 +++ b/third_party/thrift-0.22.0-module.patch
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,72 @@
++diff --git a/MODULE.bazel b/MODULE.bazel
++new file mode 100644
 +--- /dev/null
 ++++ b/MODULE.bazel
 +@@ -0,0 +1,11 @@
@@ -1267,7 +1314,8 @@ index 0000000000..0000000000
 ++bazel_dep(name = "boost.uuid", version = "1.88.0.bcr.1")
 ++bazel_dep(name = "libevent", version = "2.1.12-stable.bcr.0")
 ++bazel_dep(name = "zlib", version = "1.3.1.bcr.6")
-+
++diff --git a/BUILD.bazel b/BUILD.bazel
++new file mode 100644
 +--- /dev/null
 ++++ b/BUILD.bazel
 +@@ -0,0 +1,51 @@

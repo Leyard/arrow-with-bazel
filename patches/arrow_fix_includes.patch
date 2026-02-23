@@ -1,3 +1,29 @@
+diff --git a/cpp/src/arrow/vendored/whereami/whereami.cc b/cpp/src/arrow/vendored/whereami/whereami.cc
+--- a/cpp/src/arrow/vendored/whereami/whereami.cc
++++ b/cpp/src/arrow/vendored/whereami/whereami.cc
+@@ -20,6 +20,10 @@
+ #if !defined(WAI_MALLOC) || !defined(WAI_FREE) || !defined(WAI_REALLOC)
+ #  include <stdlib.h>
+ #endif
++#if defined(__APPLE__)
++#  include <limits.h>
++#  include <string.h>
++#endif
+
+ #if !defined(WAI_MALLOC)
+ #  define WAI_MALLOC(size) malloc(size)
+diff --git a/cpp/src/arrow/compute/kernels/scalar_string_ascii.cc b/cpp/src/arrow/compute/kernels/scalar_string_ascii.cc
+--- a/cpp/src/arrow/compute/kernels/scalar_string_ascii.cc
++++ b/cpp/src/arrow/compute/kernels/scalar_string_ascii.cc
+@@ -36,7 +36,7 @@
+ #include "arrow/util/value_parsing.h"
+
+ #ifdef ARROW_WITH_RE2
+-#  include <re2/re2.h>
++#  include "re2/re2.h"
+ #endif
+
+ namespace arrow {
 diff --git a/cpp/src/arrow/acero/aggregate_node.h b/cpp/src/arrow/acero/aggregate_node.h
 index 0c6fea16a8..b08558a178 100644
 --- a/cpp/src/arrow/acero/aggregate_node.h
